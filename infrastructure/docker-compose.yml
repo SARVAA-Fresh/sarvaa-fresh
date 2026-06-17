@@ -1,0 +1,53 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: sarvaa-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-sarvaa}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sarvaa_dev_pass}
+      POSTGRES_DB: ${POSTGRES_DB:-sarvaa_fresh}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sarvaa} -d ${POSTGRES_DB:-sarvaa_fresh}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - sarvaa-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: sarvaa-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    networks:
+      - sarvaa-network
+
+volumes:
+  postgres_data:
+    name: sarvaa_postgres_data
+  redis_data:
+    name: sarvaa_redis_data
+
+networks:
+  sarvaa-network:
+    driver: bridge

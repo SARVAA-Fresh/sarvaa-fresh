@@ -1,0 +1,537 @@
+// ───────────────────────────────────────────────
+// Prisma Schema — Production-Ready
+// ───────────────────────────────────────────────
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ───────────────────────────────────────────────
+// Enums
+// ───────────────────────────────────────────────
+
+enum OrderStatus {
+  PLACED
+  CONFIRMED
+  PACKED
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  COD
+  UPI
+  CARD
+  WALLET
+}
+
+enum AdminRole {
+  SUPER_ADMIN
+  MANAGER
+  STAFF
+}
+
+enum InventoryTransactionType {
+  IN
+  OUT
+  PURCHASE
+  SALE
+  ADJUSTMENT
+  RESERVE
+  RELEASE
+  DAMAGE
+  RETURN
+}
+
+enum SettingType {
+  STRING
+  NUMBER
+  BOOLEAN
+  JSON
+}
+
+enum UserRole {
+  CUSTOMER
+}
+
+// ───────────────────────────────────────────────
+// User
+// ───────────────────────────────────────────────
+
+model User {
+  id        String    @id @default(uuid()) @db.Uuid
+  fullName  String    @map("full_name")
+  mobile    String    @unique
+  email     String?   @unique
+  passwordHash String @map("password_hash")
+  role      UserRole  @default(CUSTOMER)
+  isActive  Boolean   @default(true) @map("is_active")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  addresses    Address[]
+  orders       Order[]
+  cart         Cart?
+  fileUploads  FileUpload[] @relation(name: "UserFileUploads")
+
+  @@index([mobile])
+  @@index([email])
+  @@index([role])
+  @@index([deletedAt])
+  @@map("users")
+}
+
+// ───────────────────────────────────────────────
+// Address
+// ───────────────────────────────────────────────
+
+model Address {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  label         String
+  fullName      String   @map("full_name")
+  mobile        String
+  addressLine1  String   @map("address_line1")
+  addressLine2  String?  @map("address_line2")
+  landmark      String?
+  area          String
+  city          String
+  state         String
+  pincode       String
+  isDefault     Boolean  @default(false) @map("is_default")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  user    User     @relation(fields: [userId], references: [id])
+  orders  Order[]
+
+  @@index([userId])
+  @@index([userId, isDefault])
+  @@index([pincode])
+  @@index([deletedAt])
+  @@map("addresses")
+}
+
+// ───────────────────────────────────────────────
+// Category
+// ───────────────────────────────────────────────
+
+model Category {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String
+  slug        String   @unique
+  description String?
+  imageUrl    String?  @map("image_url")
+  isActive    Boolean  @default(true) @map("is_active")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  products Product[]
+
+  @@index([slug])
+  @@index([isActive])
+  @@index([deletedAt])
+  @@map("categories")
+}
+
+// ───────────────────────────────────────────────
+// Product
+// ───────────────────────────────────────────────
+
+model Product {
+  id              String   @id @default(uuid()) @db.Uuid
+  categoryId      String   @map("category_id") @db.Uuid
+  name            String
+  slug            String   @unique
+  description     String?
+  imageUrl        String?  @map("image_url")
+  metaTitle       String?  @map("meta_title")
+  metaDescription String?  @map("meta_description")
+  isActive        Boolean  @default(true) @map("is_active")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  category Category         @relation(fields: [categoryId], references: [id])
+  variants ProductVariant[]
+  images   ProductImage[]
+
+  @@index([slug])
+  @@index([categoryId])
+  @@index([isActive])
+  @@index([categoryId, isActive])
+  @@index([deletedAt])
+  @@map("products")
+}
+
+// ───────────────────────────────────────────────
+// ProductVariant
+// ───────────────────────────────────────────────
+
+model ProductVariant {
+  id           String   @id @default(uuid()) @db.Uuid
+  productId    String   @map("product_id") @db.Uuid
+  sku          String   @unique
+  variantName  String   @map("variant_name")
+  unit         String
+  weight       Decimal? @db.Decimal(10, 3) @map("weight")
+  price        Decimal  @db.Decimal(10, 2)
+  mrp          Decimal? @db.Decimal(10, 2)
+  isDefault    Boolean  @default(false) @map("is_default")
+  isActive     Boolean  @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  product       Product                   @relation(fields: [productId], references: [id])
+  inventory     Inventory?
+  cartItems     CartItem[]
+  orderItems    OrderItem[]
+  inventoryTransactions InventoryTransaction[]
+
+  @@unique([productId, variantName])
+  @@index([productId])
+  @@index([productId, isActive])
+  @@index([sku])
+  @@index([deletedAt])
+  @@map("product_variants")
+}
+
+// ───────────────────────────────────────────────
+// ProductImage
+// ───────────────────────────────────────────────
+
+model ProductImage {
+  id        String   @id @default(uuid()) @db.Uuid
+  productId String   @map("product_id") @db.Uuid
+  imageUrl  String   @map("image_url")
+  altText   String?  @map("alt_text")
+  sortOrder Int      @default(0) @map("sort_order")
+  isPrimary Boolean  @default(false) @map("is_primary")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([productId])
+  @@index([productId, sortOrder])
+  @@index([productId, isPrimary])
+  @@index([deletedAt])
+  @@map("product_images")
+}
+
+// ───────────────────────────────────────────────
+// Inventory
+// ───────────────────────────────────────────────
+
+model Inventory {
+  id                 String   @id @default(uuid()) @db.Uuid
+  variantId          String   @unique @map("variant_id") @db.Uuid
+  availableStock     Int      @default(0) @map("available_stock")
+  reservedStock      Int      @default(0) @map("reserved_stock")
+  lowStockThreshold  Int      @default(5) @map("low_stock_threshold")
+  isInStock          Boolean  @default(true) @map("is_in_stock")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  variant      ProductVariant         @relation(fields: [variantId], references: [id])
+  transactions InventoryTransaction[]
+
+  @@index([variantId])
+  @@index([availableStock])
+  @@index([isInStock])
+  @@index([deletedAt])
+  @@map("inventory")
+}
+
+// ───────────────────────────────────────────────
+// InventoryTransaction
+// ───────────────────────────────────────────────
+
+model InventoryTransaction {
+  id                  String                  @id @default(uuid()) @db.Uuid
+  variantId           String                  @map("variant_id") @db.Uuid
+  inventoryId         String                  @map("inventory_id") @db.Uuid
+  type                InventoryTransactionType
+  quantityChange      Int                     @map("quantity_change")
+  availableStockAfter Int                     @map("available_stock_after")
+  reservedStockAfter  Int                     @map("reserved_stock_after")
+  reason              String?
+  referenceId         String?                 @map("reference_id")
+  referenceType       String?                 @map("reference_type")
+  performedByAdminId  String?                 @map("performed_by_admin_id") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  variant     ProductVariant @relation(fields: [variantId], references: [id])
+  inventory   Inventory      @relation(fields: [inventoryId], references: [id])
+  performedBy Admin?         @relation(fields: [performedByAdminId], references: [id], name: "AdminPerformedTransactions")
+
+  @@index([variantId])
+  @@index([inventoryId])
+  @@index([performedByAdminId])
+  @@index([referenceId, referenceType])
+  @@index([createdAt])
+  @@map("inventory_transactions")
+}
+
+// ───────────────────────────────────────────────
+// Cart
+// ───────────────────────────────────────────────
+
+model Cart {
+  id       String  @id @default(uuid()) @db.Uuid
+  userId   String  @unique @map("user_id") @db.Uuid
+  subtotal Decimal @db.Decimal(10, 2)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  user  User       @relation(fields: [userId], references: [id])
+  items CartItem[]
+
+  @@index([userId])
+  @@index([deletedAt])
+  @@map("carts")
+}
+
+// ───────────────────────────────────────────────
+// CartItem
+// ───────────────────────────────────────────────
+
+model CartItem {
+  id        String  @id @default(uuid()) @db.Uuid
+  cartId    String  @map("cart_id") @db.Uuid
+  variantId String  @map("variant_id") @db.Uuid
+  quantity  Int
+  unitPrice Decimal @map("unit_price") @db.Decimal(10, 2)
+  totalPrice Decimal @map("total_price") @db.Decimal(10, 2)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  cart    Cart           @relation(fields: [cartId], references: [id])
+  variant ProductVariant @relation(fields: [variantId], references: [id])
+
+  @@index([cartId])
+  @@index([variantId])
+  @@index([deletedAt])
+  @@index([cartId, deletedAt])
+  @@unique([cartId, variantId])
+  @@map("cart_items")
+}
+
+// ───────────────────────────────────────────────
+// Order
+// ───────────────────────────────────────────────
+
+model Order {
+  id              String        @id @default(uuid()) @db.Uuid
+  userId          String        @map("user_id") @db.Uuid
+  addressId       String        @map("address_id") @db.Uuid
+  orderNumber     String        @unique @map("order_number")
+  subtotal        Decimal       @db.Decimal(10, 2)
+  deliveryFee     Decimal       @default(0) @map("delivery_fee") @db.Decimal(10, 2)
+  totalAmount     Decimal       @map("total_amount") @db.Decimal(10, 2)
+  currentStatus   OrderStatus   @default(PLACED) @map("current_status")
+  paymentStatus   PaymentStatus @default(PENDING) @map("payment_status")
+  notes           String?
+
+  deliveryName    String?       @map("delivery_name")
+  deliveryPhone   String?       @map("delivery_phone")
+  deliveryAddress String?       @map("delivery_address")
+  deliveryCity    String?       @map("delivery_city")
+  deliveryState   String?       @map("delivery_state")
+  deliveryPincode String?       @map("delivery_pincode")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  user          User                 @relation(fields: [userId], references: [id])
+  address       Address              @relation(fields: [addressId], references: [id])
+  items         OrderItem[]
+  payments      Payment[]
+  statusHistory OrderStatusHistory[]
+
+  @@index([userId])
+  @@index([orderNumber])
+  @@index([currentStatus])
+  @@index([paymentStatus])
+  @@index([userId, createdAt])
+  @@index([currentStatus, createdAt])
+  @@index([addressId])
+  @@index([deletedAt])
+  @@map("orders")
+}
+
+// ───────────────────────────────────────────────
+// OrderItem
+// ───────────────────────────────────────────────
+
+model OrderItem {
+  id                  String  @id @default(uuid()) @db.Uuid
+  orderId             String  @map("order_id") @db.Uuid
+  variantId           String  @map("variant_id") @db.Uuid
+  productNameSnapshot String  @map("product_name_snapshot")
+  unitPrice           Decimal @map("unit_price") @db.Decimal(10, 2)
+  quantity            Int
+  totalPrice          Decimal @map("total_price") @db.Decimal(10, 2)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  order   Order          @relation(fields: [orderId], references: [id])
+  variant ProductVariant @relation(fields: [variantId], references: [id])
+
+  @@index([orderId])
+  @@index([variantId])
+  @@map("order_items")
+}
+
+// ───────────────────────────────────────────────
+// Payment
+// ───────────────────────────────────────────────
+
+model Payment {
+  id                   String        @id @default(uuid()) @db.Uuid
+  orderId              String        @map("order_id") @db.Uuid
+  paymentMethod        PaymentMethod @map("payment_method")
+  transactionReference String?       @map("transaction_reference")
+  paymentProofUrl      String?       @map("payment_proof_url")
+  amount               Decimal       @db.Decimal(10, 2)
+  paymentStatus        PaymentStatus @default(PENDING) @map("payment_status")
+  verifiedByAdminId    String?       @map("verified_by_admin_id") @db.Uuid
+  verifiedAt           DateTime?     @map("verified_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  order          Order   @relation(fields: [orderId], references: [id])
+  verifiedByAdmin Admin? @relation(fields: [verifiedByAdminId], references: [id], name: "AdminVerifiedPayments")
+
+  @@index([orderId])
+  @@index([paymentStatus])
+  @@index([verifiedByAdminId])
+  @@index([orderId, paymentStatus])
+  @@index([deletedAt])
+  @@map("payments")
+}
+
+// ───────────────────────────────────────────────
+// Admin
+// ───────────────────────────────────────────────
+
+model Admin {
+  id           String    @id @default(uuid()) @db.Uuid
+  fullName     String    @map("full_name")
+  email        String    @unique
+  passwordHash String    @map("password_hash")
+  role         AdminRole @default(STAFF)
+  isActive     Boolean   @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  orderStatusHistories  OrderStatusHistory[]  @relation(name: "OrderStatusHistoryUpdatedBy")
+  verifiedPayments      Payment[]             @relation(name: "AdminVerifiedPayments")
+  inventoryTransactions InventoryTransaction[] @relation(name: "AdminPerformedTransactions")
+
+  @@index([email])
+  @@index([role])
+  @@index([deletedAt])
+  @@map("admins")
+}
+
+// ───────────────────────────────────────────────
+// OrderStatusHistory
+// ───────────────────────────────────────────────
+
+model OrderStatusHistory {
+  id               String      @id @default(uuid()) @db.Uuid
+  orderId          String      @map("order_id") @db.Uuid
+  status           OrderStatus
+  remarks          String?
+  updatedByAdminId String?     @map("updated_by_admin_id") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  order    Order  @relation(fields: [orderId], references: [id])
+  updatedBy Admin? @relation(fields: [updatedByAdminId], references: [id], name: "OrderStatusHistoryUpdatedBy")
+
+  @@index([orderId])
+  @@index([orderId, createdAt])
+  @@map("order_status_history")
+}
+
+// ───────────────────────────────────────────────
+// Setting
+// ───────────────────────────────────────────────
+
+model Setting {
+  id          String      @id @default(uuid()) @db.Uuid
+  key         String      @unique
+  value       String
+  type        SettingType @default(STRING)
+  description String?
+  isEditable  Boolean     @default(true) @map("is_editable")
+  isPublic    Boolean     @default(false) @map("is_public")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@index([key])
+  @@index([isPublic])
+  @@index([deletedAt])
+  @@map("settings")
+}
+
+// ───────────────────────────────────────────────
+// FileUpload
+// ───────────────────────────────────────────────
+
+model FileUpload {
+  id                String   @id @default(uuid()) @db.Uuid
+  fileName          String   @map("file_name")
+  fileUrl           String   @map("file_url")
+  mimeType          String   @map("mime_type")
+  size              Int
+  uploadedByUserId  String?  @map("uploaded_by_user_id") @db.Uuid
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  uploadedBy User? @relation(fields: [uploadedByUserId], references: [id], name: "UserFileUploads")
+
+  @@index([uploadedByUserId])
+  @@index([createdAt])
+  @@map("file_uploads")
+}

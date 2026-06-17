@@ -1,0 +1,21 @@
+# dependencies
+node_modules/
+
+# build
+dist/
+
+# env
+.env
+
+# logs
+*.log
+
+# kimchi
+.kimchi/
+
+# prisma studio
+prisma/dev.db*
+
+# OS
+.DS_Store
+Thumbs.db
