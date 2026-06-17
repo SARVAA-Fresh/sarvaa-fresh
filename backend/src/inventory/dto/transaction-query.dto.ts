@@ -1,4 +1,4 @@
-import { IsEnum, IsInt, IsIn, IsOptional, IsString, IsUUID, Min, Max } from 'class-validator';
+import { IsEnum, IsInt, IsIn, IsOptional, IsString, IsUUID, IsDateString, Min, Max } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { InventoryTransactionType } from '@prisma/client';
@@ -33,6 +33,16 @@ export class TransactionQueryDto {
   @IsOptional()
   @ApiPropertyOptional({ description: 'Filter by transaction type', enum: InventoryTransactionType, required: false })
   type?: InventoryTransactionType;
+
+  @IsDateString()
+  @IsOptional()
+  @ApiPropertyOptional({ description: 'Filter transactions from this date (ISO 8601)', required: false })
+  startDate?: string;
+
+  @IsDateString()
+  @IsOptional()
+  @ApiPropertyOptional({ description: 'Filter transactions until this date (ISO 8601)', required: false })
+  endDate?: string;
 
   @IsString()
   @IsOptional()

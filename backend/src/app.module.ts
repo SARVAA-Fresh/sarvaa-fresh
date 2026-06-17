@@ -8,6 +8,7 @@ import { HealthModule } from './health/health.module';
 import { CategoriesModule } from './categories/categories.module';
 import { ProductsModule } from './products/products.module';
 import { AddressesModule } from './addresses/addresses.module';
+import { InventoryModule } from './inventory/inventory.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { validate } from './config/env.validation';
 
@@ -26,6 +27,7 @@ import { validate } from './config/env.validation';
     CategoriesModule,
     ProductsModule,
     AddressesModule,
+    InventoryModule,
   ],
   providers: [
     {

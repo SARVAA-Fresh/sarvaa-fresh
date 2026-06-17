@@ -1,6 +1,7 @@
-import { IsBoolean, IsInt, IsIn, IsOptional, IsString, IsUUID, Min, Max } from 'class-validator';
+import { IsBoolean, IsEnum, IsInt, IsIn, IsOptional, IsString, IsUUID, Min, Max } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
+import { StockStatus } from '../entities/inventory.entity';
 
 export class InventoryQueryDto {
   @IsOptional()
@@ -22,6 +23,16 @@ export class InventoryQueryDto {
   @IsOptional()
   @ApiPropertyOptional({ description: 'Filter by product variant ID', required: false })
   variantId?: string;
+
+  @IsUUID()
+  @IsOptional()
+  @ApiPropertyOptional({ description: 'Filter by product ID', required: false })
+  productId?: string;
+
+  @IsEnum(StockStatus)
+  @IsOptional()
+  @ApiPropertyOptional({ description: 'Filter by computed stock status', enum: StockStatus, required: false })
+  stockStatus?: StockStatus;
 
   @IsBoolean()
   @IsOptional()
