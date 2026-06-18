@@ -27,7 +27,7 @@ export class AuthService {
       where: { mobile },
     });
 
-    if (!user) {
+    if (!user || user.deletedAt) {
       return null;
     }
 
@@ -107,15 +107,14 @@ export class AuthService {
   }
 
   async getProfile(userId: string) {
-    const user = await this.prismaService.user.findUnique({
-      where: { id: userId },
+    const user = await this.prismaService.user.findFirst({
+      where: { id: userId, deletedAt: null },
       select: {
         id: true,
         fullName: true,
         mobile: true,
         email: true,
         role: true,
-        isActive: true,
         createdAt: true,
         updatedAt: true,
       },

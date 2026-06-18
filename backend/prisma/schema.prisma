@@ -26,16 +26,14 @@ enum OrderStatus {
 
 enum PaymentStatus {
   PENDING
-  VERIFIED
-  REJECTED
-  REFUNDED
+  PAYMENT_SUBMITTED
+  PAID
+  FAILED
 }
 
 enum PaymentMethod {
   COD
   UPI
-  CARD
-  WALLET
 }
 
 enum AdminRole {

@@ -4,6 +4,7 @@ import {
   Param,
   UseGuards,
   ParseUUIDPipe,
+  ForbiddenException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -39,14 +40,22 @@ export class UsersController {
   @Get(':id')
   @ApiOperation({
     summary: 'Get user by ID',
-    description: 'Get user profile by user ID (admin only)',
+    description: 'Get user profile by user ID (self only)',
   })
   @ApiResponse({
     status: 200,
     description: 'User profile returned successfully',
   })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden — can only access your own profile' })
   @ApiResponse({ status: 404, description: 'User not found' })
-  async getUserById(@Param('id', ParseUUIDPipe) id: string) {
+  async getUserById(
+    @CurrentUser() user: CurrentUserPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    if (id !== user.userId) {
+      throw new ForbiddenException('You can only access your own profile');
+    }
     return this.usersService.findById(id);
   }
 }

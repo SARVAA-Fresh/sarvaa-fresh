@@ -8,21 +8,27 @@ import {
   Param,
   Query,
   ParseUUIDPipe,
+  UseGuards,
 } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
   ApiResponse,
   ApiBearerAuth,
+  ApiSecurity,
 } from '@nestjs/swagger';
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { ProductQueryDto } from './dto/product-query.dto';
 import { Public } from '@/common/decorators/public.decorator';
+import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
+import { AdminApiKeyGuard } from '@/common/guards/admin-api-key.guard';
 
 @ApiTags('Products')
 @Controller('products')
+@UseGuards(JwtAuthGuard)
+@ApiBearerAuth('Bearer-auth')
 export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
 
@@ -53,9 +59,13 @@ export class ProductsController {
   }
 
   @Post()
+  @UseGuards(AdminApiKeyGuard)
+  @ApiSecurity('Api-key-auth')
   @ApiBearerAuth('Bearer-auth')
   @ApiOperation({ summary: 'Create a new product' })
   @ApiResponse({ status: 201, description: 'Product created successfully' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden — admin only' })
   @ApiResponse({ status: 409, description: 'Slug or SKU already exists' })
   @ApiResponse({ status: 400, description: 'Invalid category ID' })
   create(@Body() dto: CreateProductDto) {
@@ -63,9 +73,13 @@ export class ProductsController {
   }
 
   @Patch(':id')
+  @UseGuards(AdminApiKeyGuard)
+  @ApiSecurity('Api-key-auth')
   @ApiBearerAuth('Bearer-auth')
   @ApiOperation({ summary: 'Update a product' })
   @ApiResponse({ status: 200, description: 'Product updated successfully' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden — admin only' })
   @ApiResponse({ status: 404, description: 'Product not found' })
   @ApiResponse({ status: 409, description: 'Slug already exists' })
   update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateProductDto) {
@@ -73,9 +87,13 @@ export class ProductsController {
   }
 
   @Delete(':id')
+  @UseGuards(AdminApiKeyGuard)
+  @ApiSecurity('Api-key-auth')
   @ApiBearerAuth('Bearer-auth')
   @ApiOperation({ summary: 'Soft delete a product' })
   @ApiResponse({ status: 200, description: 'Product deleted successfully' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden — admin only' })
   @ApiResponse({ status: 404, description: 'Product not found' })
   softDelete(@Param('id', ParseUUIDPipe) id: string) {
     return this.productsService.softDelete(id);

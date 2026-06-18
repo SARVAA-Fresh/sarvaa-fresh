@@ -93,8 +93,8 @@ export class InventoryService {
   async findByVariantId(variantId: string): Promise<
     Inventory & { stockStatus: StockStatus; variant?: any }
   > {
-    const inventory = await this.prisma.inventory.findUnique({
-      where: { variantId },
+    const inventory = await this.prisma.inventory.findFirst({
+      where: { variantId, deletedAt: null },
       include: { variant: true },
     });
 

@@ -112,8 +112,8 @@ export class OrdersService {
 
       // 3. Reserve inventory
       for (const item of cart.items) {
-        const inv = await tx.inventory.findUnique({
-          where: { variantId: item.variantId },
+        const inv = await tx.inventory.findFirst({
+          where: { variantId: item.variantId, deletedAt: null },
         });
         if (!inv) {
           throw new BadRequestException(
@@ -229,8 +229,8 @@ export class OrdersService {
     return this.prisma.$transaction(async (tx) => {
       // Release reserved inventory
       for (const item of order.items) {
-        const inv = await tx.inventory.findUnique({
-          where: { variantId: item.variantId },
+        const inv = await tx.inventory.findFirst({
+          where: { variantId: item.variantId, deletedAt: null },
         });
         if (!inv) {
           throw new BadRequestException(

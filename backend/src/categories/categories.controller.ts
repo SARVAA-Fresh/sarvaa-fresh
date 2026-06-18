@@ -8,17 +8,22 @@ import {
   Patch,
   Post,
   Query,
+  UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiResponse, ApiTags, ApiSecurity } from '@nestjs/swagger';
 import { CategoriesService } from './categories.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { CategoryQueryDto } from './dto/category-query.dto';
 import { Public } from '@/common/decorators/public.decorator';
+import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
+import { AdminApiKeyGuard } from '@/common/guards/admin-api-key.guard';
 import { Category } from '@prisma/client';
 
 @ApiTags('Categories')
 @Controller('categories')
+@UseGuards(JwtAuthGuard)
+@ApiBearerAuth('Bearer-auth')
 export class CategoriesController {
   constructor(private readonly categoriesService: CategoriesService) {}
 
@@ -39,19 +44,26 @@ export class CategoriesController {
   }
 
   @Post()
+  @UseGuards(AdminApiKeyGuard)
+  @ApiSecurity('Api-key-auth')
   @ApiBearerAuth('Bearer-auth')
   @ApiResponse({ status: 201, description: 'Category created' })
   @ApiResponse({ status: 400, description: 'Bad request' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden — admin only' })
   @ApiResponse({ status: 409, description: 'Category with this slug already exists' })
   async create(@Body() dto: CreateCategoryDto): Promise<Category> {
     return this.categoriesService.create(dto);
   }
 
   @Patch(':id')
+  @UseGuards(AdminApiKeyGuard)
+  @ApiSecurity('Api-key-auth')
   @ApiBearerAuth('Bearer-auth')
   @ApiResponse({ status: 200, description: 'Category updated' })
   @ApiResponse({ status: 404, description: 'Category not found' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden — admin only' })
   @ApiResponse({ status: 409, description: 'Category with this slug already exists' })
   async update(
     @Param('id', ParseUUIDPipe) id: string,
@@ -61,9 +73,13 @@ export class CategoriesController {
   }
 
   @Delete(':id')
+  @UseGuards(AdminApiKeyGuard)
+  @ApiSecurity('Api-key-auth')
   @ApiBearerAuth('Bearer-auth')
   @ApiResponse({ status: 200, description: 'Category deleted' })
   @ApiResponse({ status: 404, description: 'Category not found' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden — admin only' })
   async softDelete(@Param('id', ParseUUIDPipe) id: string): Promise<Category> {
     return this.categoriesService.softDelete(id);
   }
