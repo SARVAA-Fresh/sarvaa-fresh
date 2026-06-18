@@ -10,6 +10,7 @@ import { ProductsModule } from './products/products.module';
 import { AddressesModule } from './addresses/addresses.module';
 import { InventoryModule } from './inventory/inventory.module';
 import { CartModule } from './cart/cart.module';
+import { OrdersModule } from './orders/orders.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { validate } from './config/env.validation';
 
@@ -30,6 +31,7 @@ import { validate } from './config/env.validation';
     AddressesModule,
     InventoryModule,
     CartModule,
+    OrdersModule,
   ],
   providers: [
     {

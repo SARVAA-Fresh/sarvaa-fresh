@@ -16,9 +16,9 @@ datasource db {
 // ───────────────────────────────────────────────
 
 enum OrderStatus {
-  PLACED
+  PENDING
   CONFIRMED
-  PACKED
+  PACKING
   OUT_FOR_DELIVERY
   DELIVERED
   CANCELLED
@@ -360,7 +360,7 @@ model Order {
   subtotal        Decimal       @db.Decimal(10, 2)
   deliveryFee     Decimal       @default(0) @map("delivery_fee") @db.Decimal(10, 2)
   totalAmount     Decimal       @map("total_amount") @db.Decimal(10, 2)
-  currentStatus   OrderStatus   @default(PLACED) @map("current_status")
+  currentStatus   OrderStatus   @default(PENDING) @map("current_status")
   paymentStatus   PaymentStatus @default(PENDING) @map("payment_status")
   notes           String?
 
