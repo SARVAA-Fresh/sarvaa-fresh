@@ -12,7 +12,10 @@ import { InventoryModule } from './inventory/inventory.module';
 import { CartModule } from './cart/cart.module';
 import { OrdersModule } from './orders/orders.module';
 import { PaymentsModule } from './payments/payments.module';
-import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
+import { AdminOrdersModule } from './admin-orders/admin-orders.module';
+import { AdminAuthModule } from './admin-auth/admin-auth.module';
+import { SettingsModule } from './settings/settings.module';
+import { AppAuthGuard } from './common/guards/app-auth.guard';
 import { validate } from './config/env.validation';
 
 @Module({
@@ -34,11 +37,14 @@ import { validate } from './config/env.validation';
     CartModule,
     OrdersModule,
     PaymentsModule,
+    AdminOrdersModule,
+    AdminAuthModule,
+    SettingsModule,
   ],
   providers: [
     {
       provide: APP_GUARD,
-      useClass: JwtAuthGuard,
+      useClass: AppAuthGuard,
     },
   ],
   exports: [AppModule],

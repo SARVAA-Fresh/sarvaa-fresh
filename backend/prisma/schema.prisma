@@ -61,6 +61,15 @@ enum SettingType {
   JSON
 }
 
+enum SettingCategory {
+  BUSINESS
+  DELIVERY
+  PAYMENT
+  CONTACT
+  SYSTEM
+  STORE
+}
+
 enum UserRole {
   CUSTOMER
 }
@@ -496,13 +505,14 @@ model OrderStatusHistory {
 // ───────────────────────────────────────────────
 
 model Setting {
-  id          String      @id @default(uuid()) @db.Uuid
-  key         String      @unique
+  id          String          @id @default(uuid()) @db.Uuid
+  key         String          @unique
   value       String
-  type        SettingType @default(STRING)
+  type        SettingType     @default(STRING)
+  category    SettingCategory @default(SYSTEM) @map("category")
   description String?
-  isEditable  Boolean     @default(true) @map("is_editable")
-  isPublic    Boolean     @default(false) @map("is_public")
+  isEditable  Boolean         @default(true) @map("is_editable")
+  isPublic    Boolean         @default(false) @map("is_public")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -510,6 +520,8 @@ model Setting {
 
   @@index([key])
   @@index([isPublic])
+  @@index([category])
+  @@index([category, isPublic])
   @@index([deletedAt])
   @@map("settings")
 }

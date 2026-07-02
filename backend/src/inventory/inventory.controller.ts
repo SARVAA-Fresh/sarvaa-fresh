@@ -24,12 +24,12 @@ import { UpdateInventoryDto } from './dto/update-inventory.dto';
 import { AdjustInventoryDto } from './dto/adjust-inventory.dto';
 import { InventoryEntity } from './entities/inventory.entity';
 import { InventoryTransactionEntity } from './entities/inventory-transaction.entity';
-import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
+import { AdminJwtGuard } from '@/common/guards/admin-jwt.guard';
 import { AdminApiKeyGuard } from '@/common/guards/admin-api-key.guard';
 
 @ApiTags('Inventory')
 @Controller('inventory')
-@UseGuards(JwtAuthGuard, AdminApiKeyGuard)
+@UseGuards(AdminJwtGuard, AdminApiKeyGuard)
 @ApiBearerAuth('Bearer-auth')
 @ApiSecurity('Api-key-auth')
 export class InventoryController {
