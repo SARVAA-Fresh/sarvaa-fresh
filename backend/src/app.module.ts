@@ -15,6 +15,7 @@ import { PaymentsModule } from './payments/payments.module';
 import { AdminOrdersModule } from './admin-orders/admin-orders.module';
 import { AdminAuthModule } from './admin-auth/admin-auth.module';
 import { SettingsModule } from './settings/settings.module';
+import { ProductImagesModule } from './product-images/product-images.module';
 import { AppAuthGuard } from './common/guards/app-auth.guard';
 import { validate } from './config/env.validation';
 
@@ -40,6 +41,7 @@ import { validate } from './config/env.validation';
     AdminOrdersModule,
     AdminAuthModule,
     SettingsModule,
+    ProductImagesModule,
   ],
   providers: [
     {

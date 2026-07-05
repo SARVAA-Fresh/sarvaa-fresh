@@ -16,6 +16,10 @@ dist/
 # prisma studio
 prisma/dev.db*
 
+# local uploads (file storage)
+/uploads
+uploads/
+
 # OS
 .DS_Store
 Thumbs.db

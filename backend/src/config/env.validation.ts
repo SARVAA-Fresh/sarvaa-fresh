@@ -1,5 +1,11 @@
 import { plainToInstance } from 'class-transformer';
-import { IsString, IsNotEmpty, validateSync } from 'class-validator';
+import {
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsNotEmpty,
+  validateSync,
+} from 'class-validator';
 
 class EnvironmentValidator {
   @IsString()
@@ -20,6 +26,23 @@ class EnvironmentValidator {
 
   @IsString()
   JWT_EXPIRES_IN!: string;
+
+  // ─── File upload (MVP) ───────────────────────────────────────────────
+  // These are intentionally optional so existing .env files without the
+  // upload variables continue to boot. The runtime layers provide
+  // sensible defaults when the values are absent.
+
+  @IsOptional()
+  @IsString()
+  UPLOAD_LOCAL_PATH?: string;
+
+  @IsOptional()
+  @IsString()
+  UPLOAD_LOCAL_URL_PREFIX?: string;
+
+  @IsOptional()
+  @IsNumber()
+  UPLOAD_MAX_FILE_SIZE?: number;
 }
 
 export function validate(config: Record<string, unknown>) {
