@@ -13,24 +13,20 @@ import {
   ApiOperation,
   ApiResponse,
   ApiBearerAuth,
-  ApiSecurity,
 } from '@nestjs/swagger';
 import { VariantsService } from './variants.service';
 import { CreateVariantDto } from './dto/create-variant.dto';
 import { UpdateVariantDto } from './dto/update-variant.dto';
-import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
-import { AdminApiKeyGuard } from '@/common/guards/admin-api-key.guard';
+import { AdminJwtGuard } from '@/common/guards/admin-jwt.guard';
 
 @ApiTags('Product Variants')
 @Controller()
-@UseGuards(JwtAuthGuard)
 @ApiBearerAuth('Bearer-auth')
 export class VariantsController {
   constructor(private readonly variantsService: VariantsService) {}
 
   @Post('products/:id/variants')
-  @UseGuards(AdminApiKeyGuard)
-  @ApiSecurity('Api-key-auth')
+  @UseGuards(AdminJwtGuard)
   @ApiOperation({ summary: 'Create a new variant for a product' })
   @ApiResponse({ status: 201, description: 'Variant created successfully' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
@@ -45,8 +41,7 @@ export class VariantsController {
   }
 
   @Patch('variants/:id')
-  @UseGuards(AdminApiKeyGuard)
-  @ApiSecurity('Api-key-auth')
+  @UseGuards(AdminJwtGuard)
   @ApiOperation({ summary: 'Update a variant' })
   @ApiResponse({ status: 200, description: 'Variant updated successfully' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
@@ -58,8 +53,7 @@ export class VariantsController {
   }
 
   @Delete('variants/:id')
-  @UseGuards(AdminApiKeyGuard)
-  @ApiSecurity('Api-key-auth')
+  @UseGuards(AdminJwtGuard)
   @ApiOperation({ summary: 'Soft delete a variant' })
   @ApiResponse({ status: 200, description: 'Variant deleted successfully' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })

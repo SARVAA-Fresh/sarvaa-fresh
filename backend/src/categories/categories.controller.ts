@@ -10,19 +10,17 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiResponse, ApiTags, ApiSecurity } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CategoriesService } from './categories.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { CategoryQueryDto } from './dto/category-query.dto';
 import { Public } from '@/common/decorators/public.decorator';
-import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
-import { AdminApiKeyGuard } from '@/common/guards/admin-api-key.guard';
+import { AdminJwtGuard } from '@/common/guards/admin-jwt.guard';
 import { Category } from '@prisma/client';
 
 @ApiTags('Categories')
 @Controller('categories')
-@UseGuards(JwtAuthGuard)
 @ApiBearerAuth('Bearer-auth')
 export class CategoriesController {
   constructor(private readonly categoriesService: CategoriesService) {}
@@ -44,8 +42,7 @@ export class CategoriesController {
   }
 
   @Post()
-  @UseGuards(AdminApiKeyGuard)
-  @ApiSecurity('Api-key-auth')
+  @UseGuards(AdminJwtGuard)
   @ApiBearerAuth('Bearer-auth')
   @ApiResponse({ status: 201, description: 'Category created' })
   @ApiResponse({ status: 400, description: 'Bad request' })
@@ -57,8 +54,7 @@ export class CategoriesController {
   }
 
   @Patch(':id')
-  @UseGuards(AdminApiKeyGuard)
-  @ApiSecurity('Api-key-auth')
+  @UseGuards(AdminJwtGuard)
   @ApiBearerAuth('Bearer-auth')
   @ApiResponse({ status: 200, description: 'Category updated' })
   @ApiResponse({ status: 404, description: 'Category not found' })
@@ -73,8 +69,7 @@ export class CategoriesController {
   }
 
   @Delete(':id')
-  @UseGuards(AdminApiKeyGuard)
-  @ApiSecurity('Api-key-auth')
+  @UseGuards(AdminJwtGuard)
   @ApiBearerAuth('Bearer-auth')
   @ApiResponse({ status: 200, description: 'Category deleted' })
   @ApiResponse({ status: 404, description: 'Category not found' })

@@ -15,19 +15,16 @@ import {
   ApiOperation,
   ApiResponse,
   ApiBearerAuth,
-  ApiSecurity,
 } from '@nestjs/swagger';
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { ProductQueryDto } from './dto/product-query.dto';
 import { Public } from '@/common/decorators/public.decorator';
-import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
-import { AdminApiKeyGuard } from '@/common/guards/admin-api-key.guard';
+import { AdminJwtGuard } from '@/common/guards/admin-jwt.guard';
 
 @ApiTags('Products')
 @Controller('products')
-@UseGuards(JwtAuthGuard)
 @ApiBearerAuth('Bearer-auth')
 export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
@@ -59,8 +56,7 @@ export class ProductsController {
   }
 
   @Post()
-  @UseGuards(AdminApiKeyGuard)
-  @ApiSecurity('Api-key-auth')
+  @UseGuards(AdminJwtGuard)
   @ApiBearerAuth('Bearer-auth')
   @ApiOperation({ summary: 'Create a new product' })
   @ApiResponse({ status: 201, description: 'Product created successfully' })
@@ -73,8 +69,7 @@ export class ProductsController {
   }
 
   @Patch(':id')
-  @UseGuards(AdminApiKeyGuard)
-  @ApiSecurity('Api-key-auth')
+  @UseGuards(AdminJwtGuard)
   @ApiBearerAuth('Bearer-auth')
   @ApiOperation({ summary: 'Update a product' })
   @ApiResponse({ status: 200, description: 'Product updated successfully' })
@@ -87,8 +82,7 @@ export class ProductsController {
   }
 
   @Delete(':id')
-  @UseGuards(AdminApiKeyGuard)
-  @ApiSecurity('Api-key-auth')
+  @UseGuards(AdminJwtGuard)
   @ApiBearerAuth('Bearer-auth')
   @ApiOperation({ summary: 'Soft delete a product' })
   @ApiResponse({ status: 200, description: 'Product deleted successfully' })
