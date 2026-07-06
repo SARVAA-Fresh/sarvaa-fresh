@@ -14,19 +14,16 @@ import {
   ApiResponse,
   ApiBearerAuth,
   ApiParam,
-  ApiSecurity,
 } from '@nestjs/swagger';
 import { AdminOrdersService } from './admin-orders.service';
 import { ListOrdersQueryDto } from './dto/list-orders-query.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { AdminJwtGuard } from '@/common/guards/admin-jwt.guard';
-import { AdminApiKeyGuard } from '@/common/guards/admin-api-key.guard';
 
 @ApiTags('Admin Orders')
 @Controller('admin/orders')
-@UseGuards(AdminJwtGuard, AdminApiKeyGuard)
+@UseGuards(AdminJwtGuard)
 @ApiBearerAuth('Bearer-auth')
-@ApiSecurity('Api-key-auth')
 export class AdminOrdersController {
   constructor(private readonly adminOrdersService: AdminOrdersService) {}
 

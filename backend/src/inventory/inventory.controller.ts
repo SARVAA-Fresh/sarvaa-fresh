@@ -15,7 +15,6 @@ import {
   ApiResponse,
   ApiBearerAuth,
   ApiParam,
-  ApiSecurity,
 } from '@nestjs/swagger';
 import { InventoryService } from './inventory.service';
 import { InventoryQueryDto } from './dto/inventory-query.dto';
@@ -25,13 +24,11 @@ import { AdjustInventoryDto } from './dto/adjust-inventory.dto';
 import { InventoryEntity } from './entities/inventory.entity';
 import { InventoryTransactionEntity } from './entities/inventory-transaction.entity';
 import { AdminJwtGuard } from '@/common/guards/admin-jwt.guard';
-import { AdminApiKeyGuard } from '@/common/guards/admin-api-key.guard';
 
 @ApiTags('Inventory')
 @Controller('inventory')
-@UseGuards(AdminJwtGuard, AdminApiKeyGuard)
+@UseGuards(AdminJwtGuard)
 @ApiBearerAuth('Bearer-auth')
-@ApiSecurity('Api-key-auth')
 export class InventoryController {
   constructor(private readonly inventoryService: InventoryService) {}
 
