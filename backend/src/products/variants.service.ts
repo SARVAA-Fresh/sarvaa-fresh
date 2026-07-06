@@ -48,7 +48,7 @@ export class VariantsService {
             sku: dto.sku,
             variantName: dto.variantName,
             unit: dto.unit,
-            weight: dto.weight ? new Prisma.Decimal(dto.weight) : null,
+            weight: dto.weight ? new Prisma.Decimal(dto.weight.toString()) : null,
             price: new Prisma.Decimal(dto.price.toString()),
             mrp: dto.mrp ? new Prisma.Decimal(dto.mrp.toString()) : null,
             isDefault: dto.isDefault ?? false,
@@ -92,7 +92,7 @@ export class VariantsService {
         updateData.mrp = new Prisma.Decimal(updateData.mrp.toString());
       }
       if (updateData.weight !== undefined && updateData.weight !== null) {
-        updateData.weight = new Prisma.Decimal(updateData.weight);
+        updateData.weight = new Prisma.Decimal(updateData.weight.toString());
       }
 
       const variant = await this.prisma.productVariant.update({

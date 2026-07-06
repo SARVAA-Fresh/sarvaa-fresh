@@ -140,7 +140,7 @@ export class ProductsService {
                 sku: variant.sku,
                 variantName: variant.variantName,
                 unit: variant.unit,
-                weight: variant.weight ? new Prisma.Decimal(variant.weight) : null,
+                weight: variant.weight ? new Prisma.Decimal(variant.weight.toString()) : null,
                 price: new Prisma.Decimal(variant.price.toString()),
                 mrp: variant.mrp ? new Prisma.Decimal(variant.mrp.toString()) : null,
                 isDefault: variant.isDefault ?? false,

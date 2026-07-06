@@ -29,11 +29,12 @@ export class CreateVariantInlineDto {
   @ApiProperty({ description: 'Unit of measurement', maxLength: 50 })
   unit!: string;
 
-  @IsString()
+  @IsNumber()
   @IsOptional()
-  @MaxLength(50)
-  @ApiPropertyOptional({ description: 'Weight value', maxLength: 50, required: false })
-  weight?: string;
+  @Min(0)
+  @Type(() => Number)
+  @ApiPropertyOptional({ description: 'Weight value', minimum: 0, required: false })
+  weight?: number;
 
   @IsNumber()
   @IsNotEmpty()
