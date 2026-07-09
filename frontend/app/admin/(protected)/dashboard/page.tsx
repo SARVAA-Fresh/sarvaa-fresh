@@ -1,37 +1,81 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
 
 import { ApiError } from "@/lib/api/types";
 import { get } from "@/lib/api/client";
 import type { DashboardSummary } from "@/lib/api/types";
+import { useAuth } from "@/lib/auth/AuthProvider";
+
+type MetricAccent = "emerald" | "amber" | "sky" | "zinc";
 
 interface MetricCardProps {
   label: string;
   value: string;
   hint?: string;
-  accent?: "emerald" | "amber" | "sky" | "zinc";
+  accent?: MetricAccent;
+  icon?: React.ReactNode;
+  attention?: boolean;
 }
 
-function MetricCard({ label, value, hint, accent = "zinc" }: MetricCardProps) {
-  const accentClasses: Record<NonNullable<MetricCardProps["accent"]>, string> = {
-    emerald: "text-emerald-700",
-    amber: "text-amber-700",
-    sky: "text-sky-700",
-    zinc: "text-zinc-900",
-  };
+const ACCENT_TEXT: Record<MetricAccent, string> = {
+  emerald: "text-emerald-700",
+  amber: "text-amber-700",
+  sky: "text-sky-700",
+  zinc: "text-zinc-900",
+};
 
+const ACCENT_BG: Record<MetricAccent, string> = {
+  emerald: "bg-emerald-50 text-emerald-700",
+  amber: "bg-amber-50 text-amber-700",
+  sky: "bg-sky-50 text-sky-700",
+  zinc: "bg-zinc-100 text-zinc-700",
+};
+
+function MetricCard({
+  label,
+  value,
+  hint,
+  accent = "zinc",
+  icon,
+  attention = false,
+}: MetricCardProps) {
   return (
-    <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6">
-      <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-        {label}
-      </p>
+    <div
+      className={`group relative rounded-2xl border bg-white p-5 shadow-sm transition-shadow sm:p-6 ${
+        attention
+          ? "border-amber-200 ring-1 ring-amber-100"
+          : "border-zinc-200"
+      }`}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+          {label}
+        </p>
+        {icon && (
+          <span
+            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${ACCENT_BG[accent]}`}
+            aria-hidden="true"
+          >
+            {icon}
+          </span>
+        )}
+      </div>
       <p
-        className={`mt-2 text-2xl font-bold tracking-tight sm:text-3xl ${accentClasses[accent]}`}
+        className={`mt-3 text-2xl font-bold tracking-tight sm:text-3xl ${ACCENT_TEXT[accent]}`}
       >
         {value}
       </p>
-      {hint && <p className="mt-1 text-xs text-zinc-500">{hint}</p>}
+      {hint && (
+        <p
+          className={`mt-1.5 text-xs ${
+            attention ? "font-medium text-amber-700" : "text-zinc-500"
+          }`}
+        >
+          {hint}
+        </p>
+      )}
     </div>
   );
 }
@@ -77,11 +121,139 @@ function formatStatusLabel(status: string): string {
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
+function formatRevenue(value: string | number): string {
+  const numeric = typeof value === "number" ? value : Number.parseFloat(value);
+  if (!Number.isFinite(numeric)) {
+    return "₹0.00";
+  }
+  return `₹${numeric.toFixed(2)}`;
+}
+
+function ProductsIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.75}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+      <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+      <line x1="12" y1="22.08" x2="12" y2="12" />
+    </svg>
+  );
+}
+
+function CategoriesIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.75}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <rect x="3" y="3" width="7" height="7" rx="1.5" />
+      <rect x="14" y="3" width="7" height="7" rx="1.5" />
+      <rect x="3" y="14" width="7" height="7" rx="1.5" />
+      <rect x="14" y="14" width="7" height="7" rx="1.5" />
+    </svg>
+  );
+}
+
+function StockIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.75}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+      <line x1="12" y1="9" x2="12" y2="13" />
+      <line x1="12" y1="17" x2="12.01" y2="17" />
+    </svg>
+  );
+}
+
+function OrdersIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.75}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
+      <line x1="3" y1="6" x2="21" y2="6" />
+      <path d="M16 10a4 4 0 0 1-8 0" />
+    </svg>
+  );
+}
+
+function RevenueIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.75}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <line x1="12" y1="1" x2="12" y2="23" />
+      <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+    </svg>
+  );
+}
+
+function InboxIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.75}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <polyline points="22 12 16 12 14 15 10 15 8 12 2 12" />
+      <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
+    </svg>
+  );
+}
+
 export default function AdminDashboardPage() {
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const requestIdRef = useRef<number>(0);
+  const { admin } = useAuth();
 
   const extractErrorMessage = (error: unknown): string => {
     if (error instanceof ApiError) {
@@ -128,6 +300,13 @@ export default function AdminDashboardPage() {
     void runFetch(requestId);
   }, [runFetch]);
 
+  const greeting = useMemo(() => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good morning";
+    if (hour < 18) return "Good afternoon";
+    return "Good evening";
+  }, []);
+
   if (isLoading) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center px-4">
@@ -163,17 +342,37 @@ export default function AdminDashboardPage() {
 
   const { counts, ordersToday, ordersByStatus } = summary;
   const statusEntries = Object.entries(ordersByStatus);
-  const revenueDisplay = `₹${ordersToday.revenue}`;
+  const lowStockAttention = counts.lowStockVariants > 0;
+  const firstName = admin?.fullName.split(/\s+/).filter(Boolean)[0] ?? "";
 
   return (
     <div className="space-y-8">
-      <header>
-        <h1 className="text-2xl font-bold tracking-tight text-zinc-900 sm:text-3xl">
-          Dashboard
-        </h1>
-        <p className="mt-1 text-sm text-zinc-600">
-          Snapshot of your store activity for today.
-        </p>
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <span className="relative hidden h-14 w-14 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm sm:flex">
+            <Image
+              src="/sarvaa-fresh-logo.png"
+              alt="SARVAA Fresh logo"
+              width={1254}
+              height={1254}
+              sizes="56px"
+              className="h-14 w-14 object-contain"
+              priority
+            />
+          </span>
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-emerald-700">
+              {greeting}
+              {firstName ? `, ${firstName}` : ""}
+            </p>
+            <h1 className="mt-0.5 text-2xl font-bold tracking-tight text-zinc-900 sm:text-3xl">
+              Dashboard
+            </h1>
+            <p className="mt-1 text-sm text-zinc-600">
+              Snapshot of your store activity for today.
+            </p>
+          </div>
+        </div>
       </header>
 
       <section
@@ -184,31 +383,37 @@ export default function AdminDashboardPage() {
           label="Active Products"
           value={String(counts.activeProducts)}
           accent="emerald"
+          icon={<ProductsIcon className="h-5 w-5" />}
         />
         <MetricCard
           label="Active Categories"
           value={String(counts.activeCategories)}
           accent="sky"
+          icon={<CategoriesIcon className="h-5 w-5" />}
         />
         <MetricCard
           label="Low Stock Variants"
           value={String(counts.lowStockVariants)}
-          accent={counts.lowStockVariants > 0 ? "amber" : "zinc"}
+          accent={lowStockAttention ? "amber" : "zinc"}
+          icon={<StockIcon className="h-5 w-5" />}
           hint={
-            counts.lowStockVariants > 0
+            lowStockAttention
               ? "Needs attention"
               : "Inventory is healthy"
           }
+          attention={lowStockAttention}
         />
         <MetricCard
           label="Orders Today"
           value={String(ordersToday.count)}
           accent="zinc"
+          icon={<OrdersIcon className="h-5 w-5" />}
         />
         <MetricCard
           label="Revenue Today"
-          value={revenueDisplay}
+          value={formatRevenue(ordersToday.revenue)}
           accent="emerald"
+          icon={<RevenueIcon className="h-5 w-5" />}
         />
       </section>
 
@@ -216,17 +421,29 @@ export default function AdminDashboardPage() {
         aria-label="Orders by status"
         className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6"
       >
-        <h2 className="text-base font-semibold text-zinc-900">
-          Orders by Status
-        </h2>
-        <p className="mt-1 text-sm text-zinc-500">
-          Count of today&apos;s orders grouped by their current status.
-        </p>
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-base font-semibold text-zinc-900">
+              Orders by Status
+            </h2>
+            <p className="mt-1 text-sm text-zinc-500">
+              Count of today&apos;s orders grouped by their current status.
+            </p>
+          </div>
+        </div>
 
         {statusEntries.length === 0 ? (
-          <p className="mt-6 rounded-lg bg-zinc-50 px-4 py-6 text-center text-sm text-zinc-500">
-            No orders
-          </p>
+          <div className="mt-6 flex flex-col items-center justify-center rounded-xl border border-dashed border-zinc-200 bg-zinc-50 px-4 py-10 text-center">
+            <span className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-white text-zinc-400 shadow-sm">
+              <InboxIcon className="h-5 w-5" />
+            </span>
+            <p className="text-sm font-medium text-zinc-700">
+              No orders yet today
+            </p>
+            <p className="mt-1 text-xs text-zinc-500">
+              New orders will appear here as they come in.
+            </p>
+          </div>
         ) : (
           <ul className="mt-4 divide-y divide-zinc-100">
             {statusEntries.map(([status, value]) => (
@@ -237,7 +454,7 @@ export default function AdminDashboardPage() {
                 <span className="font-medium text-zinc-700">
                   {formatStatusLabel(status)}
                 </span>
-                <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800">
+                <span className="inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800">
                   {String(value)}
                 </span>
               </li>

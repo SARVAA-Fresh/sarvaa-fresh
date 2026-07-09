@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
@@ -86,6 +87,26 @@ function CloseIcon({ className }: { className?: string }) {
   );
 }
 
+function LogoutIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.75}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+      <polyline points="10 17 5 12 10 7" />
+      <line x1="5" y1="12" x2="15" y2="12" />
+    </svg>
+  );
+}
+
 export default function ProtectedAdminLayout({
   children,
 }: {
@@ -127,15 +148,31 @@ export default function ProtectedAdminLayout({
     <div className="min-h-screen bg-zinc-50">
       {/* Mobile top bar */}
       <header className="sticky top-0 z-30 flex items-center justify-between border-b border-zinc-200 bg-white px-4 py-3 md:hidden">
-        <div className="flex items-center gap-2">
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-700 text-sm font-bold text-white">
-            S
+        <Link
+          href="/admin/dashboard"
+          className="flex items-center gap-2.5"
+          onClick={() => setIsMobileMenuOpen(false)}
+        >
+          <span className="relative h-9 w-9 overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm">
+            <Image
+              src="/sarvaa-fresh-logo.png"
+              alt="SARVAA Fresh logo"
+              width={1254}
+              height={1254}
+              sizes="36px"
+              className="h-9 w-9 object-contain"
+              priority
+            />
           </span>
           <div className="leading-tight">
-            <p className="text-sm font-semibold text-zinc-900">SARVAA Fresh</p>
-            <p className="text-[11px] font-medium text-emerald-700">Admin</p>
+            <p className="text-sm font-semibold tracking-tight text-zinc-900">
+              SARVAA Fresh
+            </p>
+            <p className="text-[11px] font-medium uppercase tracking-wide text-emerald-700">
+              Admin
+            </p>
           </div>
-        </div>
+        </Link>
         <button
           type="button"
           onClick={() => setIsMobileMenuOpen((value) => !value)}
@@ -156,7 +193,7 @@ export default function ProtectedAdminLayout({
       {isMobileMenuOpen && (
         <div
           id="mobile-admin-menu"
-          className="border-b border-zinc-200 bg-white px-4 py-3 md:hidden"
+          className="border-b border-zinc-200 bg-white px-3 py-3 shadow-sm md:hidden"
         >
           <nav className="flex flex-col gap-1">
             {NAV_ITEMS.map((item) => {
@@ -165,12 +202,13 @@ export default function ProtectedAdminLayout({
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                    isActive
-                      ? "bg-emerald-50 text-emerald-800"
-                      : "text-zinc-700 hover:bg-zinc-100"
-                  }`}
                   onClick={() => setIsMobileMenuOpen(false)}
+                  className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                    isActive
+                      ? "border-l-2 border-emerald-600 bg-emerald-50 text-emerald-800"
+                      : "border-l-2 border-transparent text-zinc-700 hover:bg-zinc-100"
+                  }`}
+                  aria-current={isActive ? "page" : undefined}
                 >
                   <DashboardIcon className="h-4 w-4" />
                   {item.label}
@@ -179,66 +217,10 @@ export default function ProtectedAdminLayout({
             })}
           </nav>
           <div className="mt-3 border-t border-zinc-200 pt-3">
-            <div className="mb-3 px-1">
-              <p className="text-sm font-semibold text-zinc-900">
-                {admin.fullName}
-              </p>
-              <p className="text-xs text-zinc-500">{admin.email}</p>
-            </div>
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-800 transition-colors hover:bg-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-600/30"
-            >
-              Log out
-            </button>
-          </div>
-        </div>
-      )}
-
-      <div className="flex">
-        {/* Desktop sidebar */}
-        <aside className="hidden w-64 shrink-0 border-r border-zinc-200 bg-white md:flex md:flex-col">
-          <div className="flex h-16 items-center gap-3 border-b border-zinc-200 px-5">
-            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-700 text-sm font-bold text-white">
-              S
-            </span>
-            <div className="leading-tight">
-              <p className="text-sm font-semibold text-zinc-900">
-                SARVAA Fresh
-              </p>
-              <p className="text-xs font-medium text-emerald-700">Admin</p>
-            </div>
-          </div>
-
-          <nav className="flex-1 px-3 py-4">
-            <ul className="flex flex-col gap-1">
-              {NAV_ITEMS.map((item) => {
-                const isActive = pathname === item.href;
-                return (
-                  <li key={item.href}>
-                    <Link
-                      href={item.href}
-                      className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                        isActive
-                          ? "bg-emerald-50 text-emerald-800"
-                          : "text-zinc-700 hover:bg-zinc-100"
-                      }`}
-                    >
-                      <DashboardIcon className="h-4 w-4" />
-                      {item.label}
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </nav>
-
-          <div className="border-t border-zinc-200 p-4">
-            <div className="mb-3 flex items-center gap-3">
+            <div className="mb-3 flex items-center gap-3 px-1">
               <span
                 aria-hidden="true"
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-100 text-sm font-semibold text-emerald-800"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-sm font-semibold text-emerald-800"
               >
                 {initials}
               </span>
@@ -252,8 +234,88 @@ export default function ProtectedAdminLayout({
             <button
               type="button"
               onClick={handleLogout}
-              className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-800 transition-colors hover:bg-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-600/30"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-800 transition-colors hover:bg-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-600/30"
             >
+              <LogoutIcon className="h-4 w-4" />
+              Log out
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="flex">
+        {/* Desktop sidebar */}
+        <aside className="hidden w-64 shrink-0 border-r border-zinc-200 bg-white md:flex md:flex-col">
+          <div className="flex h-16 items-center gap-3 border-b border-zinc-200 px-5">
+            <span className="relative h-10 w-10 overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm">
+              <Image
+                src="/sarvaa-fresh-logo.png"
+                alt="SARVAA Fresh logo"
+                width={1254}
+                height={1254}
+                sizes="40px"
+                className="h-10 w-10 object-contain"
+                priority
+              />
+            </span>
+            <div className="leading-tight">
+              <p className="text-sm font-semibold tracking-tight text-zinc-900">
+                SARVAA Fresh
+              </p>
+              <p className="text-[11px] font-medium uppercase tracking-wide text-emerald-700">
+                Admin
+              </p>
+            </div>
+          </div>
+
+          <nav className="flex-1 px-3 py-5">
+            <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
+              Workspace
+            </p>
+            <ul className="flex flex-col gap-1">
+              {NAV_ITEMS.map((item) => {
+                const isActive = pathname === item.href;
+                return (
+                  <li key={item.href}>
+                    <Link
+                      href={item.href}
+                      className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                        isActive
+                          ? "border-l-2 border-emerald-600 bg-emerald-50 text-emerald-800"
+                          : "border-l-2 border-transparent text-zinc-700 hover:bg-zinc-100"
+                      }`}
+                      aria-current={isActive ? "page" : undefined}
+                    >
+                      <DashboardIcon className="h-4 w-4" />
+                      {item.label}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </nav>
+
+          <div className="border-t border-zinc-200 p-4">
+            <div className="mb-3 flex items-center gap-3 rounded-lg bg-zinc-50 p-2.5">
+              <span
+                aria-hidden="true"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-sm font-semibold text-emerald-800"
+              >
+                {initials}
+              </span>
+              <div className="min-w-0 leading-tight">
+                <p className="truncate text-sm font-semibold text-zinc-900">
+                  {admin.fullName}
+                </p>
+                <p className="truncate text-xs text-zinc-500">{admin.email}</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-800 transition-colors hover:bg-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-600/30"
+            >
+              <LogoutIcon className="h-4 w-4" />
               Log out
             </button>
           </div>
