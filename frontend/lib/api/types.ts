@@ -85,3 +85,33 @@ export interface DashboardSummary {
   ordersToday: DashboardOrdersToday;
   ordersByStatus: Record<string, number>;
 }
+
+export interface Category {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  imageUrl: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+}
+
+export interface CategoryListResponse {
+  items: Category[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface CreateCategoryRequest {
+  name: string;
+  slug: string;
+  description?: string;
+  imageUrl?: string;
+  isActive?: boolean;
+}
+
+export type UpdateCategoryRequest = Partial<CreateCategoryRequest>;

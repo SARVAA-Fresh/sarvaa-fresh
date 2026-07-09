@@ -24,7 +24,12 @@ export class CategoryQueryDto {
 
   @IsOptional()
   @IsBoolean()
-  @Transform(({ value }) => value === 'true' || value === true)
+  @Transform(({ obj, key }) => {
+    const value = obj[key];
+    if (value === 'true' || value === true) return true;
+    if (value === 'false' || value === false) return false;
+    return undefined;
+  })
   @ApiProperty({ required: false })
   isActive?: boolean;
 

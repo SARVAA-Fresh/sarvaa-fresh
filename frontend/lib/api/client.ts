@@ -50,7 +50,7 @@ function buildUrl(path: string): string {
 type RequestOptions = { skipAuth?: boolean };
 
 async function request<T>(
-  method: "GET" | "POST",
+  method: "GET" | "POST" | "PATCH" | "DELETE",
   path: string,
   body: unknown,
   options: RequestOptions = {},
@@ -58,7 +58,7 @@ async function request<T>(
   const url = buildUrl(path);
   const headers = buildHeaders(
     {},
-    method === "POST",
+    method === "POST" || method === "PATCH",
   );
 
   if (!options.skipAuth) {
@@ -74,7 +74,7 @@ async function request<T>(
     cache: "no-store",
   };
 
-  if (method === "POST") {
+  if (method === "POST" || method === "PATCH") {
     init.body = body === undefined ? "{}" : JSON.stringify(body);
   }
 
@@ -133,4 +133,24 @@ export function post<T>(
   options?: RequestOptions,
 ): Promise<T> {
   return request<T>("POST", path, body, options);
+}
+
+export function patch<T>(
+  path: string,
+  body: unknown,
+  options?: RequestOptions,
+): Promise<T> {
+  return request<T>("PATCH", path, body, options);
+}
+
+/**
+ * Exported as `deleteRequest` because `delete` is a reserved word in JavaScript.
+ * Consumers can alias the import to `delete` for ergonomics, e.g.:
+ *   import { deleteRequest as del } from "@/lib/api/client";
+ */
+export function deleteRequest<T>(
+  path: string,
+  options?: RequestOptions,
+): Promise<T> {
+  return request<T>("DELETE", path, undefined, options);
 }

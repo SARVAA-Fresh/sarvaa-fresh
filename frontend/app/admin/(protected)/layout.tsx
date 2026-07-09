@@ -10,10 +10,12 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 interface NavItem {
   label: string;
   href: string;
+  icon: (props: { className?: string }) => React.ReactElement;
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { label: "Dashboard", href: "/admin/dashboard" },
+  { label: "Dashboard", href: "/admin/dashboard", icon: DashboardIcon },
+  { label: "Categories", href: "/admin/categories", icon: CategoriesIcon },
 ];
 
 function FullPageLoading({ message }: { message: string }) {
@@ -44,6 +46,27 @@ function DashboardIcon({ className }: { className?: string }) {
       <rect x="14" y="3" width="7" height="5" rx="1.5" />
       <rect x="14" y="12" width="7" height="9" rx="1.5" />
       <rect x="3" y="16" width="7" height="5" rx="1.5" />
+    </svg>
+  );
+}
+
+function CategoriesIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.75}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <rect x="3" y="3" width="7" height="7" rx="1.5" />
+      <rect x="14" y="3" width="7" height="7" rx="1.5" />
+      <rect x="3" y="14" width="7" height="7" rx="1.5" />
+      <rect x="14" y="14" width="7" height="7" rx="1.5" />
     </svg>
   );
 }
@@ -198,6 +221,7 @@ export default function ProtectedAdminLayout({
           <nav className="flex flex-col gap-1">
             {NAV_ITEMS.map((item) => {
               const isActive = pathname === item.href;
+              const Icon = item.icon;
               return (
                 <Link
                   key={item.href}
@@ -210,7 +234,7 @@ export default function ProtectedAdminLayout({
                   }`}
                   aria-current={isActive ? "page" : undefined}
                 >
-                  <DashboardIcon className="h-4 w-4" />
+                  <Icon className="h-4 w-4" />
                   {item.label}
                 </Link>
               );
@@ -275,6 +299,7 @@ export default function ProtectedAdminLayout({
             <ul className="flex flex-col gap-1">
               {NAV_ITEMS.map((item) => {
                 const isActive = pathname === item.href;
+                const Icon = item.icon;
                 return (
                   <li key={item.href}>
                     <Link
@@ -286,7 +311,7 @@ export default function ProtectedAdminLayout({
                       }`}
                       aria-current={isActive ? "page" : undefined}
                     >
-                      <DashboardIcon className="h-4 w-4" />
+                      <Icon className="h-4 w-4" />
                       {item.label}
                     </Link>
                   </li>
