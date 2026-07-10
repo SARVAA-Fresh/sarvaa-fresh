@@ -115,3 +115,89 @@ export interface CreateCategoryRequest {
 }
 
 export type UpdateCategoryRequest = Partial<CreateCategoryRequest>;
+
+export interface ProductImage {
+  id: string;
+  productId: string;
+  imageUrl: string;
+  altText: string | null;
+  sortOrder: number;
+  isPrimary: boolean;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+}
+
+export interface ProductVariant {
+  id: string;
+  productId: string;
+  sku: string;
+  variantName: string;
+  unit: string;
+  weight: string | null;
+  price: string;
+  mrp: string | null;
+  isDefault: boolean;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+}
+
+export interface Product {
+  id: string;
+  categoryId: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  imageUrl: string | null;
+  metaTitle: string | null;
+  metaDescription: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+  category: Category;
+  variants: ProductVariant[];
+  images: ProductImage[];
+}
+
+export interface ProductListResponse {
+  items: Product[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface CreateVariantRequest {
+  sku: string;
+  variantName: string;
+  unit: string;
+  price: number;
+  weight?: number;
+  mrp?: number;
+  isDefault?: boolean;
+  isActive?: boolean;
+}
+
+export type UpdateVariantRequest = Partial<CreateVariantRequest>;
+
+export interface CreateProductRequest {
+  categoryId: string;
+  name: string;
+  slug: string;
+  description?: string;
+  metaTitle?: string;
+  metaDescription?: string;
+  isActive?: boolean;
+  variants: CreateVariantRequest[];
+}
+
+export type UpdateProductRequest = Partial<Omit<CreateProductRequest, "variants">>;
+
+export interface UpdateProductImageRequest {
+  altText?: string | null;
+  sortOrder?: number;
+  isPrimary?: boolean;
+}

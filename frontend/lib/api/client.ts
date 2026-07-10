@@ -49,6 +49,23 @@ function buildUrl(path: string): string {
 
 type RequestOptions = { skipAuth?: boolean };
 
+export function buildApiUrl(path: string): string {
+  return buildUrl(path);
+}
+
+export function buildAssetUrl(path: string | null | undefined): string | null {
+  if (!path) {
+    return null;
+  }
+  if (/^https?:\/\//i.test(path) || path.startsWith("data:")) {
+    return path;
+  }
+  const apiUrl = new URL(getBaseUrl());
+  const origin = `${apiUrl.protocol}//${apiUrl.host}`;
+  const suffix = path.startsWith("/") ? path : `/${path}`;
+  return `${origin}${suffix}`;
+}
+
 async function request<T>(
   method: "GET" | "POST" | "PATCH" | "DELETE",
   path: string,
@@ -141,6 +158,71 @@ export function patch<T>(
   options?: RequestOptions,
 ): Promise<T> {
   return request<T>("PATCH", path, body, options);
+}
+
+export async function postForm<T>(
+  path: string,
+  formData: FormData,
+  options: RequestOptions = {},
+): Promise<T> {
+  const headers = buildHeaders({}, false);
+
+  if (!options.skipAuth) {
+    const token = getAdminToken();
+    if (token) {
+      headers.set("Authorization", `Bearer ${token}`);
+    }
+  }
+
+  let response: Response;
+  try {
+    response = await fetch(buildUrl(path), {
+      method: "POST",
+      headers,
+      body: formData,
+      cache: "no-store",
+    });
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw error;
+    }
+    throw new ApiError(
+      0,
+      ["Network error. Please check your connection and try again."],
+      "NetworkError",
+      "Network error. Please check your connection and try again.",
+    );
+  }
+
+  const payload = await parseJsonSafely(response);
+
+  if (response.status === 401) {
+    if (!options.skipAuth) {
+      removeAdminToken();
+    }
+  }
+
+  if (!response.ok) {
+    const errorPayload = (payload ?? {}) as Partial<ApiErrorResponse>;
+    const messages = normalizeMessages(errorPayload.message);
+    const errorName =
+      typeof errorPayload.error === "string" && errorPayload.error.length > 0
+        ? errorPayload.error
+        : response.statusText || "Error";
+    throw new ApiError(
+      response.status,
+      messages,
+      errorName,
+      messages[0] ?? errorName,
+    );
+  }
+
+  if (payload && typeof payload === "object" && "success" in payload) {
+    const wrapped = payload as ApiResponse<T>;
+    return wrapped.data;
+  }
+
+  return payload as T;
 }
 
 /**

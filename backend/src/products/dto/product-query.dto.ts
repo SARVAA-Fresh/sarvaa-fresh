@@ -39,7 +39,12 @@ export class ProductQueryDto {
 
   @IsBoolean()
   @IsOptional()
-  @Transform(({ value }: { value: string | boolean }) => value === 'true' || value === true)
+  @Transform(({ obj, key }) => {
+    const value = obj[key];
+    if (value === 'true' || value === true) return true;
+    if (value === 'false' || value === false) return false;
+    return undefined;
+  })
   @ApiPropertyOptional({ description: 'Filter by active status', required: false })
   isActive?: boolean;
 
