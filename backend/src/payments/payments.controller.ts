@@ -6,7 +6,9 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -15,13 +17,16 @@ import {
   ApiBearerAuth,
   ApiParam,
   ApiSecurity,
+  ApiConsumes,
 } from '@nestjs/swagger';
 import { PaymentsService } from './payments.service';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { PaymentEntity } from './entities/payment.entity';
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 import { AdminApiKeyGuard } from '@/common/guards/admin-api-key.guard';
+import { AdminJwtGuard } from '@/common/guards/admin-jwt.guard';
 import { CurrentUser, CurrentUserPayload } from '@/common/decorators/current-user.decorator';
+import { FileInterceptor } from '@nestjs/platform-express';
 
 @ApiTags('Payments')
 @Controller('payments')
@@ -85,6 +90,36 @@ export class PaymentsController {
     return this.paymentsService.submitPayment(orderId, user.userId) as any;
   }
 
+  @Post('order/:orderId/proof')
+  @UseInterceptors(FileInterceptor('proof', { limits: { fileSize: 5 * 1024 * 1024 } }))
+  @ApiOperation({
+    summary: 'Upload UPI payment proof',
+    description:
+      'Customer uploads a payment proof image for a UPI payment. Sets payment status to PAYMENT_SUBMITTED and stores the proof URL.',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiParam({
+    name: 'orderId',
+    description: 'Order UUID',
+    example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Payment proof uploaded successfully',
+    type: PaymentEntity,
+  })
+  @ApiResponse({ status: 400, description: 'Missing or invalid proof file' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Not your order' })
+  @ApiResponse({ status: 404, description: 'Payment or order not found' })
+  async uploadProof(
+    @CurrentUser() user: CurrentUserPayload,
+    @Param('orderId', ParseUUIDPipe) orderId: string,
+    @UploadedFile() file: Express.Multer.File,
+  ): Promise<PaymentEntity> {
+    return this.paymentsService.submitPaymentProof(orderId, user.userId, file) as any;
+  }
+
   @Get('order/:orderId')
   @ApiOperation({
     summary: 'Get payment details',
@@ -137,5 +172,63 @@ export class PaymentsController {
     @Param('orderId', ParseUUIDPipe) orderId: string,
   ): Promise<PaymentEntity> {
     return this.paymentsService.markPaid(orderId) as any;
+  }
+}
+
+@ApiTags('Admin Payments')
+@Controller('admin/payments')
+@UseGuards(AdminJwtGuard)
+@ApiBearerAuth('Bearer-auth')
+export class AdminPaymentsController {
+  constructor(private readonly paymentsService: PaymentsService) {}
+
+  @Patch('order/:orderId/mark-paid')
+  @ApiOperation({
+    summary: 'Mark payment as paid (admin JWT)',
+    description:
+      'Admin action for COD pending payments and submitted UPI payments. Updates both Payment.paymentStatus and Order.paymentStatus.',
+  })
+  @ApiParam({
+    name: 'orderId',
+    description: 'Order UUID',
+    example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Payment marked as paid',
+    type: PaymentEntity,
+  })
+  @ApiResponse({ status: 400, description: 'Invalid payment transition' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 404, description: 'Payment or order not found' })
+  async markPaid(
+    @Param('orderId', ParseUUIDPipe) orderId: string,
+  ): Promise<PaymentEntity> {
+    return this.paymentsService.markPaid(orderId) as any;
+  }
+
+  @Patch('order/:orderId/reject')
+  @ApiOperation({
+    summary: 'Reject submitted payment (admin JWT)',
+    description:
+      'Admin action for submitted UPI payments. Marks the payment and order payment status as FAILED.',
+  })
+  @ApiParam({
+    name: 'orderId',
+    description: 'Order UUID',
+    example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Payment rejected',
+    type: PaymentEntity,
+  })
+  @ApiResponse({ status: 400, description: 'Invalid payment transition' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 404, description: 'Payment or order not found' })
+  async reject(
+    @Param('orderId', ParseUUIDPipe) orderId: string,
+  ): Promise<PaymentEntity> {
+    return this.paymentsService.markFailed(orderId) as any;
   }
 }

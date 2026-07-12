@@ -46,7 +46,17 @@ export class ProductsService {
         where,
         include: {
           category: {
-            select: { id: true, name: true, slug: true },
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              description: true,
+              imageUrl: true,
+              isActive: true,
+              createdAt: true,
+              updatedAt: true,
+              deletedAt: true,
+            },
           },
           variants: {
             where: { deletedAt: null },
@@ -79,7 +89,19 @@ export class ProductsService {
     const product = await this.prisma.product.findFirst({
       where: { id, deletedAt: null },
       include: {
-        category: true,
+        category: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            description: true,
+            imageUrl: true,
+            isActive: true,
+            createdAt: true,
+            updatedAt: true,
+            deletedAt: true,
+          },
+        },
         variants: {
           where: { deletedAt: null },
           orderBy: { isDefault: 'desc' },
@@ -102,7 +124,19 @@ export class ProductsService {
     const product = await this.prisma.product.findFirst({
       where: { slug, deletedAt: null },
       include: {
-        category: true,
+        category: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            description: true,
+            imageUrl: true,
+            isActive: true,
+            createdAt: true,
+            updatedAt: true,
+            deletedAt: true,
+          },
+        },
         variants: {
           where: { deletedAt: null },
           orderBy: { isDefault: 'desc' },

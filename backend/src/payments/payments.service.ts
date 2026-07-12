@@ -8,18 +8,21 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '@/prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 import { CreatePaymentDto } from './dto/create-payment.dto';
+import { StorageService } from '@/storage/storage.service';
 
 @Injectable()
 export class PaymentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
+    private readonly storageService: StorageService,
   ) {}
 
   private generateUpiUrl(orderNumber: string, amount: number): string {
     const upiId = this.configService.get<string>('UPI_ID', 'dummy@sarvaa');
     const upiName = this.configService.get<string>('UPI_NAME', 'SARVAA Fresh');
-    return `upi://pay?pa=${upiId}&pn=${encodeURIComponent(upiName)}&am=${amount.toFixed(2)}&cu=INR&tn=${orderNumber}`;
+    const reference = encodeURIComponent(orderNumber);
+    return `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(upiName)}&am=${amount.toFixed(2)}&cu=INR&tn=${reference}&tr=${reference}`;
   }
 
   private async assertOrderOwnership(orderId: string, userId: string) {
@@ -89,7 +92,7 @@ export class PaymentsService {
   }
 
   async submitPayment(orderId: string, userId: string) {
-    await this.assertOrderOwnership(orderId, userId);
+    const order = await this.assertOrderOwnership(orderId, userId);
 
     const payment = await this.prisma.payment.findFirst({
       where: { orderId, deletedAt: null },
@@ -112,22 +115,39 @@ export class PaymentsService {
       );
     }
 
-    const updated = await this.prisma.payment.update({
-      where: { id: payment.id },
-      data: { paymentStatus: 'PAYMENT_SUBMITTED' },
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const nextPayment = await tx.payment.update({
+        where: { id: payment.id },
+        data: { paymentStatus: 'PAYMENT_SUBMITTED' },
+      });
+
+      await tx.orderStatusHistory.create({
+        data: {
+          orderId,
+          status: order.currentStatus,
+          remarks: 'Payment Submitted',
+        },
+      });
+
+      return nextPayment;
     });
 
-    const order = await this.prisma.order.findUnique({
-      where: { id: orderId },
-    });
-    const amount = parseFloat(order!.totalAmount.toString());
-    const upiUrl = this.generateUpiUrl(order!.orderNumber, amount);
+    const amount = parseFloat(order.totalAmount.toString());
+    const upiUrl = this.generateUpiUrl(order.orderNumber, amount);
 
     return this.mapPaymentResponse(updated, upiUrl, upiUrl);
   }
 
-  async getPayment(orderId: string, userId: string) {
-    await this.assertOrderOwnership(orderId, userId);
+  async submitPaymentProof(
+    orderId: string,
+    userId: string,
+    file: Express.Multer.File,
+  ) {
+    if (!file) {
+      throw new BadRequestException('Payment proof image is required');
+    }
+
+    const order = await this.assertOrderOwnership(orderId, userId);
 
     const payment = await this.prisma.payment.findFirst({
       where: { orderId, deletedAt: null },
@@ -138,16 +158,62 @@ export class PaymentsService {
       throw new NotFoundException('Payment not found for this order');
     }
 
-    const order = await this.prisma.order.findUnique({
-      where: { id: orderId },
+    if (payment.paymentMethod !== 'UPI') {
+      throw new BadRequestException('Only UPI payments can upload proof');
+    }
+
+    if (payment.paymentStatus === 'PAID' || payment.paymentStatus === 'FAILED') {
+      throw new BadRequestException(
+        `Cannot upload proof when payment status is ${payment.paymentStatus}`,
+      );
+    }
+
+    const saved = await this.storageService.saveImage(file);
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const nextPayment = await tx.payment.update({
+        where: { id: payment.id },
+        data: {
+          paymentProofUrl: saved.url,
+          paymentStatus: 'PAYMENT_SUBMITTED',
+        },
+      });
+
+      await tx.orderStatusHistory.create({
+        data: {
+          orderId,
+          status: order.currentStatus,
+          remarks: 'Payment Submitted',
+        },
+      });
+
+      return nextPayment;
     });
+
+    const amount = parseFloat(order.totalAmount.toString());
+    const upiUrl = this.generateUpiUrl(order.orderNumber, amount);
+
+    return this.mapPaymentResponse(updated, upiUrl, upiUrl);
+  }
+
+  async getPayment(orderId: string, userId: string) {
+    const order = await this.assertOrderOwnership(orderId, userId);
+
+    const payment = await this.prisma.payment.findFirst({
+      where: { orderId, deletedAt: null },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (!payment) {
+      throw new NotFoundException('Payment not found for this order');
+    }
 
     let paymentUrl: string | null = null;
     let qrCodeData: string | null = null;
 
     if (payment.paymentMethod === 'UPI') {
-      const amount = parseFloat(order!.totalAmount.toString());
-      paymentUrl = this.generateUpiUrl(order!.orderNumber, amount);
+      const amount = parseFloat(order.totalAmount.toString());
+      paymentUrl = this.generateUpiUrl(order.orderNumber, amount);
       qrCodeData = paymentUrl;
     }
 
@@ -201,6 +267,61 @@ export class PaymentsService {
       await tx.order.update({
         where: { id: orderId },
         data: { paymentStatus: 'PAID' },
+      });
+
+      await tx.orderStatusHistory.create({
+        data: {
+          orderId,
+          status: order.currentStatus,
+          remarks: 'Payment Verified',
+        },
+      });
+
+      return this.mapPaymentResponse(updatedPayment);
+    });
+  }
+
+  async markFailed(orderId: string) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+    });
+
+    if (!order || order.deletedAt) {
+      throw new NotFoundException('Order not found');
+    }
+
+    const payment = await this.prisma.payment.findFirst({
+      where: { orderId, deletedAt: null },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (!payment) {
+      throw new NotFoundException('Payment not found for this order');
+    }
+
+    if (payment.paymentStatus !== 'PAYMENT_SUBMITTED') {
+      throw new BadRequestException(
+        `Cannot reject payment from status ${payment.paymentStatus}`,
+      );
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const updatedPayment = await tx.payment.update({
+        where: { id: payment.id },
+        data: { paymentStatus: 'FAILED' },
+      });
+
+      await tx.order.update({
+        where: { id: orderId },
+        data: { paymentStatus: 'FAILED' },
+      });
+
+      await tx.orderStatusHistory.create({
+        data: {
+          orderId,
+          status: order.currentStatus,
+          remarks: 'Payment Rejected',
+        },
       });
 
       return this.mapPaymentResponse(updatedPayment);

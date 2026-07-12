@@ -111,7 +111,7 @@ export class AdminOrdersController {
   @ApiOperation({
     summary: 'Cancel an order',
     description:
-      'Cancels the order and releases reserved stock back to available inventory. Cannot cancel a DELIVERED order.',
+      'Cancels the order and releases reserved stock back to available inventory. Cannot cancel an order after it is out for delivery.',
   })
   @ApiParam({
     name: 'id',
@@ -122,7 +122,7 @@ export class AdminOrdersController {
     status: 200,
     description: 'Order cancelled successfully',
   })
-  @ApiResponse({ status: 400, description: 'Order is already cancelled or delivered' })
+  @ApiResponse({ status: 400, description: 'Order is already cancelled, out for delivery, or delivered' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden — admin access required' })
   @ApiResponse({ status: 404, description: 'Order not found' })

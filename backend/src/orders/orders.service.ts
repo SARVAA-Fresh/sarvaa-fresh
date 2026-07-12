@@ -29,59 +29,87 @@ export class OrdersService {
   }
 
   async create(userId: string, dto: CreateOrderDto) {
-    const cart = await this.prisma.cart.findUnique({
-      where: { userId },
-      include: {
-        items: {
-          where: { deletedAt: null },
-          include: { variant: { include: { product: true } } },
-        },
-      },
-    });
-
-    if (!cart || cart.items.length === 0) {
-      throw new BadRequestException('Cart is empty');
-    }
-
-    const address = await this.prisma.address.findUnique({
-      where: { id: dto.addressId },
-    });
-
-    if (!address || address.deletedAt) {
-      throw new NotFoundException('Address not found');
-    }
-
-    if (address.userId !== userId) {
-      throw new ForbiddenException('You can only use your own addresses');
-    }
-
-    // Validate inventory for each item
-    for (const item of cart.items) {
-      const inventory = await this.prisma.inventory.findUnique({
-        where: { variantId: item.variantId },
-      });
-      if (!inventory || inventory.deletedAt) {
-        throw new BadRequestException(
-          `Product variant ${item.variant.product.name} is out of stock`,
-        );
-      }
-      if (inventory.availableStock < item.quantity) {
-        throw new BadRequestException(
-          `Insufficient stock for ${item.variant.product.name}. Available: ${inventory.availableStock}, Requested: ${item.quantity}`,
-        );
-      }
-    }
-
-    let subtotal = new Prisma.Decimal(0);
-    for (const item of cart.items) {
-      subtotal = subtotal.add(new Prisma.Decimal(item.totalPrice.toString()));
-    }
-
-    const deliveryFee = new Prisma.Decimal(0);
-    const totalAmount = subtotal.add(deliveryFee);
-
     return this.prisma.$transaction(async (tx) => {
-      // 1. Create order with address snapshot
+      const cart = await tx.cart.findUnique({
+        where: { userId },
+        include: {
+          items: {
+            where: { deletedAt: null },
+            include: { variant: { include: { product: { include: { images: { where: { deletedAt: null }, orderBy: { sortOrder: 'asc' } } } } } } },
+          },
+        },
+      });
+
+      if (!cart || cart.items.length === 0) {
+        throw new BadRequestException('Cart is empty');
+      }
+
+      const address = await tx.address.findUnique({
+        where: { id: dto.addressId },
+      });
+
+      if (!address || address.deletedAt) {
+        throw new NotFoundException('Address not found');
+      }
+
+      if (address.userId !== userId) {
+        throw new ForbiddenException('You can only use your own addresses');
+      }
+
+      for (const item of cart.items) {
+        const inventory = await tx.inventory.findFirst({
+          where: { variantId: item.variantId, deletedAt: null },
+          include: { variant: { include: { product: true } } },
+        });
+
+        if (!inventory) {
+          throw new BadRequestException(
+            `Product variant ${item.variant.product.name} is out of stock`,
+          );
+        }
+
+        const reserveResult = await tx.inventory.updateMany({
+          where: {
+            id: inventory.id,
+            availableStock: { gte: item.quantity },
+            deletedAt: null,
+          },
+          data: {
+            availableStock: { decrement: item.quantity },
+            reservedStock: { increment: item.quantity },
+          },
+        });
+
+        if (reserveResult.count === 0) {
+          throw new BadRequestException(
+            `Insufficient stock for ${item.variant.product.name}. Available: ${inventory.availableStock}, Requested: ${item.quantity}`,
+          );
+        }
+
+        const updatedInventory = await tx.inventory.findUnique({
+          where: { id: inventory.id },
+        });
+
+        if (!updatedInventory) {
+          throw new BadRequestException(
+            `Inventory not found for ${item.variant.product.name}`,
+          );
+        }
+
+        await tx.inventory.update({
+          where: { id: inventory.id },
+          data: { isInStock: updatedInventory.availableStock > 0 },
+        });
+      }
+
+      let subtotal = new Prisma.Decimal(0);
+      for (const item of cart.items) {
+        subtotal = subtotal.add(new Prisma.Decimal(item.totalPrice.toString()));
+      }
+
+      const deliveryFee = new Prisma.Decimal(0);
+      const totalAmount = subtotal.add(deliveryFee);
+
       const order = await tx.order.create({
         data: {
           userId,
@@ -93,6 +121,14 @@ export class OrdersService {
           currentStatus: 'PENDING',
           paymentStatus: 'PENDING',
           ...this.buildAddressSnapshot(address),
+        },
+      });
+
+      await tx.orderStatusHistory.create({
+        data: {
+          orderId: order.id,
+          status: 'PENDING',
+          remarks: 'Order Placed',
         },
       });
 
@@ -110,27 +146,16 @@ export class OrdersService {
         });
       }
 
-      // 3. Reserve inventory
+      // 3. Log inventory reservations
       for (const item of cart.items) {
-        const inv = await tx.inventory.findFirst({
-          where: { variantId: item.variantId, deletedAt: null },
+        const inv = await tx.inventory.findUnique({
+          where: { variantId: item.variantId },
         });
         if (!inv) {
           throw new BadRequestException(
             `Inventory not found for variant ${item.variantId}`,
           );
         }
-        const newAvailable = inv.availableStock - item.quantity;
-        const newReserved = inv.reservedStock + item.quantity;
-
-        await tx.inventory.update({
-          where: { variantId: item.variantId },
-          data: {
-            availableStock: newAvailable,
-            reservedStock: newReserved,
-            isInStock: newAvailable > 0,
-          },
-        });
 
         await tx.inventoryTransaction.create({
           data: {
@@ -138,8 +163,8 @@ export class OrdersService {
             inventoryId: inv.id,
             type: 'RESERVE',
             quantityChange: -item.quantity,
-            availableStockAfter: newAvailable,
-            reservedStockAfter: newReserved,
+            availableStockAfter: inv.availableStock,
+            reservedStockAfter: inv.reservedStock,
             reason: 'Stock reserved for order',
             referenceId: order.id,
             referenceType: 'Order',
@@ -161,7 +186,31 @@ export class OrdersService {
 
       return tx.order.findUnique({
         where: { id: order.id },
-        include: { items: true },
+        include: {
+          address: true,
+          items: {
+            include: {
+              variant: {
+                include: {
+                  product: {
+                    include: {
+                      images: {
+                        where: { deletedAt: null },
+                        orderBy: { sortOrder: 'asc' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          payments: {
+            orderBy: { createdAt: 'desc' },
+          },
+          statusHistory: {
+            orderBy: { createdAt: 'desc' },
+          },
+        },
       });
     });
   }
@@ -172,7 +221,31 @@ export class OrdersService {
     const [items, total] = await Promise.all([
       this.prisma.order.findMany({
         where: { userId, deletedAt: null },
-        include: { items: true },
+        include: {
+          address: true,
+          items: {
+            include: {
+              variant: {
+                include: {
+                  product: {
+                    include: {
+                      images: {
+                        where: { deletedAt: null },
+                        orderBy: { sortOrder: 'asc' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          payments: {
+            orderBy: { createdAt: 'desc' },
+          },
+          statusHistory: {
+            orderBy: { createdAt: 'desc' },
+          },
+        },
         skip,
         take: limit,
         orderBy: { createdAt: 'desc' },
@@ -192,7 +265,31 @@ export class OrdersService {
   async findById(userId: string, id: string) {
     const order = await this.prisma.order.findUnique({
       where: { id },
-      include: { items: true },
+      include: {
+        address: true,
+        items: {
+          include: {
+            variant: {
+              include: {
+                product: {
+                  include: {
+                    images: {
+                      where: { deletedAt: null },
+                      orderBy: { sortOrder: 'asc' },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        payments: {
+          orderBy: { createdAt: 'desc' },
+        },
+        statusHistory: {
+          orderBy: { createdAt: 'desc' },
+        },
+      },
     });
 
     if (!order || order.deletedAt) {
@@ -220,9 +317,9 @@ export class OrdersService {
       throw new ForbiddenException('You can only cancel your own orders');
     }
 
-    if (!['PENDING', 'CONFIRMED'].includes(order.currentStatus)) {
+    if (!['PENDING', 'CONFIRMED', 'PACKING'].includes(order.currentStatus)) {
       throw new BadRequestException(
-        'Order can only be cancelled before packing',
+        'Order can only be cancelled before it is out for delivery',
       );
     }
 
@@ -238,7 +335,7 @@ export class OrdersService {
           );
         }
         const newAvailable = inv.availableStock + item.quantity;
-        const newReserved = inv.reservedStock - item.quantity;
+        const newReserved = Math.max(0, inv.reservedStock - item.quantity);
 
         await tx.inventory.update({
           where: { variantId: item.variantId },
@@ -264,11 +361,45 @@ export class OrdersService {
         });
       }
 
-      return tx.order.update({
+      const updated = await tx.order.update({
         where: { id },
         data: { currentStatus: 'CANCELLED' },
-        include: { items: true },
+        include: {
+          address: true,
+          items: {
+            include: {
+              variant: {
+                include: {
+                  product: {
+                    include: {
+                      images: {
+                        where: { deletedAt: null },
+                        orderBy: { sortOrder: 'asc' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          payments: {
+            orderBy: { createdAt: 'desc' },
+          },
+          statusHistory: {
+            orderBy: { createdAt: 'desc' },
+          },
+        },
       });
+
+      await tx.orderStatusHistory.create({
+        data: {
+          orderId: id,
+          status: 'CANCELLED',
+          remarks: 'Order Cancelled',
+        },
+      });
+
+      return updated;
     });
   }
 }

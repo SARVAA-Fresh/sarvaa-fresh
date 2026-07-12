@@ -17,6 +17,8 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Dashboard", href: "/admin/dashboard", icon: DashboardIcon },
   { label: "Categories", href: "/admin/categories", icon: CategoriesIcon },
   { label: "Products", href: "/admin/products", icon: ProductsIcon },
+  { label: "Inventory", href: "/admin/inventory", icon: InventoryIcon },
+  { label: "Orders", href: "/admin/orders", icon: OrdersIcon },
 ];
 
 function FullPageLoading({ message }: { message: string }) {
@@ -88,6 +90,48 @@ function ProductsIcon({ className }: { className?: string }) {
       <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
       <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
       <line x1="12" y1="22.08" x2="12" y2="12" />
+    </svg>
+  );
+}
+
+function InventoryIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.75}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M20 7 12 3 4 7l8 4 8-4Z" />
+      <path d="M4 7v10l8 4 8-4V7" />
+      <path d="M12 11v10" />
+      <path d="M8 13v3" />
+      <path d="M16 13v3" />
+    </svg>
+  );
+}
+
+function OrdersIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.75}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z" />
+      <path d="M3 6h18" />
+      <path d="M16 10a4 4 0 0 1-8 0" />
     </svg>
   );
 }
@@ -199,7 +243,7 @@ export default function ProtectedAdminLayout({
         >
           <span className="relative h-9 w-9 overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm">
             <Image
-              src="/sarvaa-fresh-logo.png"
+              src="/sarvaa-fresh-logo-v2.png"
               alt="SARVAA Fresh logo"
               width={1254}
               height={1254}
@@ -294,7 +338,7 @@ export default function ProtectedAdminLayout({
           <div className="flex h-16 items-center gap-3 border-b border-zinc-200 px-5">
             <span className="relative h-10 w-10 overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm">
               <Image
-                src="/sarvaa-fresh-logo.png"
+                src="/sarvaa-fresh-logo-v2.png"
                 alt="SARVAA Fresh logo"
                 width={1254}
                 height={1254}

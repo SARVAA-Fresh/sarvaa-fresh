@@ -25,7 +25,9 @@ export class InventoryService {
     return StockStatus.IN_STOCK;
   }
 
-  private mapInventoryWithStatus(inventory: Inventory) {
+  private mapInventoryWithStatus<T extends { availableStock: number; lowStockThreshold: number }>(
+    inventory: T,
+  ) {
     return {
       ...inventory,
       stockStatus: this.getStockStatus(inventory),
@@ -45,41 +47,68 @@ export class InventoryService {
     const where: Prisma.InventoryWhereInput = { deletedAt: null };
     if (query.variantId) where.variantId = query.variantId;
     if (query.isInStock !== undefined) where.isInStock = query.isInStock;
-
-    // Fetch inventory with variant for productId filtering
-    const rawItems = await this.prisma.inventory.findMany({
-      where,
-      include: { variant: true },
-      orderBy: {
-        [query.sortBy ?? 'createdAt']: query.sortOrder ?? 'desc',
-      },
-    });
-
-    let filtered = rawItems;
-
     if (query.productId) {
-      filtered = filtered.filter((i) => i.variant.productId === query.productId);
+      where.variant = { productId: query.productId };
     }
-
     if (query.isLowStock !== undefined) {
-      filtered = filtered.filter(
-        (i) =>
-          i.availableStock > 0 &&
-          i.availableStock <= i.lowStockThreshold === query.isLowStock,
-      );
+      where.availableStock = query.isLowStock
+        ? { gt: 0, lte: this.prisma.inventory.fields.lowStockThreshold }
+        : { gt: this.prisma.inventory.fields.lowStockThreshold };
+    }
+    if (query.stockStatus === StockStatus.OUT_OF_STOCK) {
+      where.availableStock = { lte: 0 };
+    } else if (query.stockStatus === StockStatus.LOW_STOCK) {
+      where.availableStock = {
+        gt: 0,
+        lte: this.prisma.inventory.fields.lowStockThreshold,
+      };
+    } else if (query.stockStatus === StockStatus.IN_STOCK) {
+      where.availableStock = { gt: this.prisma.inventory.fields.lowStockThreshold };
     }
 
-    if (query.stockStatus) {
-      filtered = filtered.filter(
-        (i) => this.getStockStatus(i) === query.stockStatus,
-      );
-    }
+    const skip = (page - 1) * limit;
+    const include = {
+      variant: {
+        select: {
+          id: true,
+          productId: true,
+          sku: true,
+          variantName: true,
+          unit: true,
+          weight: true,
+          price: true,
+          mrp: true,
+          isDefault: true,
+          isActive: true,
+          product: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              imageUrl: true,
+              category: {
+                select: { id: true, name: true, slug: true },
+              },
+            },
+          },
+        },
+      },
+    } satisfies Prisma.InventoryInclude;
 
-    const total = filtered.length;
-    const start = (page - 1) * limit;
-    const items = filtered
-      .slice(start, start + limit)
-      .map((i) => this.mapInventoryWithStatus(i));
+    const [rawItems, total] = await Promise.all([
+      this.prisma.inventory.findMany({
+        where,
+        include,
+        skip,
+        take: limit,
+        orderBy: {
+          [query.sortBy ?? 'createdAt']: query.sortOrder ?? 'desc',
+        },
+      }),
+      this.prisma.inventory.count({ where }),
+    ]);
+
+    const items = rawItems.map((i) => this.mapInventoryWithStatus(i));
 
     return {
       items,
@@ -95,7 +124,19 @@ export class InventoryService {
   > {
     const inventory = await this.prisma.inventory.findFirst({
       where: { variantId, deletedAt: null },
-      include: { variant: true },
+      include: {
+        variant: {
+          include: {
+            product: {
+              include: {
+                category: {
+                  select: { id: true, name: true, slug: true },
+                },
+              },
+            },
+          },
+        },
+      },
     });
 
     if (!inventory) {
@@ -236,6 +277,19 @@ export class InventoryService {
         where,
         skip,
         take: limit,
+        include: {
+          variant: {
+            select: {
+              id: true,
+              sku: true,
+              variantName: true,
+              unit: true,
+              product: {
+                select: { id: true, name: true },
+              },
+            },
+          },
+        },
         orderBy: {
           [query.sortBy ?? 'createdAt']: query.sortOrder ?? 'desc',
         },
@@ -255,6 +309,19 @@ export class InventoryService {
   async findTransactionById(id: string): Promise<InventoryTransaction> {
     const transaction = await this.prisma.inventoryTransaction.findUnique({
       where: { id },
+      include: {
+        variant: {
+          select: {
+            id: true,
+            sku: true,
+            variantName: true,
+            unit: true,
+            product: {
+              select: { id: true, name: true },
+            },
+          },
+        },
+      },
     });
 
     if (!transaction) {

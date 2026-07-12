@@ -1,5 +1,9 @@
 import { ApiError, type ApiErrorResponse, type ApiResponse } from "@/lib/api/types";
 import { getAdminToken, removeAdminToken } from "@/lib/auth/storage";
+import {
+  getCustomerToken,
+  removeCustomerToken,
+} from "@/lib/customer-auth/storage";
 
 const DEFAULT_BASE_URL = "http://localhost:3001/api/v1";
 
@@ -47,7 +51,8 @@ function buildUrl(path: string): string {
   return `${base}${suffix}`;
 }
 
-type RequestOptions = { skipAuth?: boolean };
+type AuthScope = "admin" | "customer";
+type RequestOptions = { skipAuth?: boolean; authScope?: AuthScope };
 
 export function buildApiUrl(path: string): string {
   return buildUrl(path);
@@ -79,7 +84,10 @@ async function request<T>(
   );
 
   if (!options.skipAuth) {
-    const token = getAdminToken();
+    const token =
+      options.authScope === "customer"
+        ? getCustomerToken()
+        : getAdminToken();
     if (token) {
       headers.set("Authorization", `Bearer ${token}`);
     }
@@ -113,7 +121,11 @@ async function request<T>(
 
   if (response.status === 401) {
     if (!options.skipAuth) {
-      removeAdminToken();
+      if (options.authScope === "customer") {
+        removeCustomerToken();
+      } else {
+        removeAdminToken();
+      }
     }
   }
 
@@ -168,7 +180,10 @@ export async function postForm<T>(
   const headers = buildHeaders({}, false);
 
   if (!options.skipAuth) {
-    const token = getAdminToken();
+    const token =
+      options.authScope === "customer"
+        ? getCustomerToken()
+        : getAdminToken();
     if (token) {
       headers.set("Authorization", `Bearer ${token}`);
     }
@@ -198,7 +213,11 @@ export async function postForm<T>(
 
   if (response.status === 401) {
     if (!options.skipAuth) {
-      removeAdminToken();
+      if (options.authScope === "customer") {
+        removeCustomerToken();
+      } else {
+        removeAdminToken();
+      }
     }
   }
 

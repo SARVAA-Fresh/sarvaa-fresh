@@ -1,9 +1,11 @@
 import { Module } from '@nestjs/common';
-import { PaymentsController } from './payments.controller';
+import { AdminPaymentsController, PaymentsController } from './payments.controller';
 import { PaymentsService } from './payments.service';
+import { StorageModule } from '@/storage/storage.module';
 
 @Module({
-  controllers: [PaymentsController],
+  imports: [StorageModule],
+  controllers: [PaymentsController, AdminPaymentsController],
   providers: [PaymentsService],
   exports: [PaymentsService],
 })

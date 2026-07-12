@@ -10,7 +10,7 @@ const VALID_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   PENDING: [OrderStatus.CONFIRMED, OrderStatus.CANCELLED],
   CONFIRMED: [OrderStatus.PACKING, OrderStatus.CANCELLED],
   PACKING: [OrderStatus.OUT_FOR_DELIVERY, OrderStatus.CANCELLED],
-  OUT_FOR_DELIVERY: [OrderStatus.DELIVERED, OrderStatus.CANCELLED],
+  OUT_FOR_DELIVERY: [OrderStatus.DELIVERED],
   DELIVERED: [],
   CANCELLED: [],
 };
@@ -225,8 +225,13 @@ export class AdminOrdersService {
       throw new BadRequestException('Order is already cancelled');
     }
 
-    if (order.currentStatus === OrderStatus.DELIVERED) {
-      throw new BadRequestException('Cannot cancel a delivered order');
+    if (
+      order.currentStatus === OrderStatus.OUT_FOR_DELIVERY ||
+      order.currentStatus === OrderStatus.DELIVERED
+    ) {
+      throw new BadRequestException(
+        'Cannot cancel an order after it is out for delivery',
+      );
     }
 
     const updated = await this.prisma.$transaction(async (tx) => {
@@ -248,6 +253,7 @@ export class AdminOrdersService {
         data: {
           orderId: id,
           status: OrderStatus.CANCELLED,
+          remarks: 'Order Cancelled',
           updatedByAdminId: null,
         },
       });

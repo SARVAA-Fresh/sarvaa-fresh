@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 
 import { ApiError } from "@/lib/api/types";
 import { get } from "@/lib/api/client";
@@ -351,7 +352,7 @@ export default function AdminDashboardPage() {
         <div className="flex items-center gap-3">
           <span className="relative hidden h-14 w-14 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm sm:flex">
             <Image
-              src="/sarvaa-fresh-logo.png"
+              src="/sarvaa-fresh-logo-v2.png"
               alt="SARVAA Fresh logo"
               width={1254}
               height={1254}
@@ -418,6 +419,24 @@ export default function AdminDashboardPage() {
       </section>
 
       <section
+        aria-label="Operational shortcuts"
+        className="grid grid-cols-1 gap-3 sm:grid-cols-2"
+      >
+        <Link
+          href="/admin/inventory?stockStatus=LOW_STOCK"
+          className="rounded-2xl border border-amber-200 bg-white p-4 text-sm font-semibold text-amber-800 shadow-sm transition-colors hover:bg-amber-50"
+        >
+          Review low-stock inventory
+        </Link>
+        <Link
+          href="/admin/orders?status=PENDING"
+          className="rounded-2xl border border-emerald-200 bg-white p-4 text-sm font-semibold text-emerald-800 shadow-sm transition-colors hover:bg-emerald-50"
+        >
+          Review pending orders
+        </Link>
+      </section>
+
+      <section
         aria-label="Orders by status"
         className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6"
       >
@@ -427,7 +446,7 @@ export default function AdminDashboardPage() {
               Orders by Status
             </h2>
             <p className="mt-1 text-sm text-zinc-500">
-              Count of today&apos;s orders grouped by their current status.
+              Count of all active orders grouped by their current status.
             </p>
           </div>
         </div>
@@ -438,7 +457,7 @@ export default function AdminDashboardPage() {
               <InboxIcon className="h-5 w-5" />
             </span>
             <p className="text-sm font-medium text-zinc-700">
-              No orders yet today
+              No orders yet
             </p>
             <p className="mt-1 text-xs text-zinc-500">
               New orders will appear here as they come in.

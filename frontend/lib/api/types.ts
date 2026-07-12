@@ -59,6 +59,16 @@ export interface Admin {
   updatedAt?: string;
 }
 
+export interface CustomerUser {
+  id: string;
+  fullName: string;
+  mobile: string;
+  email: string | null;
+  role: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface LoginRequest {
   email: string;
   password: string;
@@ -68,6 +78,22 @@ export interface LoginResponseData {
   accessToken: string;
   admin: Admin;
 }
+
+export interface CustomerLoginResponseData {
+  access_token: string;
+  token_type: string;
+  expires_in: string;
+  user: CustomerUser;
+}
+
+export interface CustomerRegisterRequest {
+  fullName: string;
+  mobile: string;
+  email?: string;
+  password: string;
+}
+
+export type CustomerProfile = CustomerUser;
 
 export interface DashboardCounts {
   activeProducts: number;
@@ -200,4 +226,306 @@ export interface UpdateProductImageRequest {
   altText?: string | null;
   sortOrder?: number;
   isPrimary?: boolean;
+}
+
+export type StockStatus = "OUT_OF_STOCK" | "LOW_STOCK" | "IN_STOCK";
+export type InventoryTransactionType =
+  | "IN"
+  | "OUT"
+  | "PURCHASE"
+  | "SALE"
+  | "ADJUSTMENT"
+  | "RESERVE"
+  | "RELEASE"
+  | "DAMAGE"
+  | "RETURN";
+
+export interface InventoryVariantProduct {
+  id: string;
+  name: string;
+  slug?: string;
+  imageUrl?: string | null;
+  category?: Pick<Category, "id" | "name" | "slug"> | null;
+}
+
+export interface InventoryVariant {
+  id: string;
+  productId: string;
+  sku: string;
+  variantName: string;
+  unit: string;
+  weight: string | null;
+  price?: string;
+  mrp?: string | null;
+  isDefault?: boolean;
+  isActive?: boolean;
+  product?: InventoryVariantProduct | null;
+}
+
+export interface InventoryItem {
+  id: string;
+  variantId: string;
+  availableStock: number;
+  reservedStock: number;
+  lowStockThreshold: number;
+  isInStock: boolean;
+  stockStatus: StockStatus;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+  variant: InventoryVariant;
+}
+
+export interface InventoryListResponse {
+  items: InventoryItem[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface InventoryAdjustmentRequest {
+  variantId: string;
+  quantity: number;
+  type: InventoryTransactionType;
+  reason?: string;
+}
+
+export interface UpdateInventoryRequest {
+  lowStockThreshold?: number;
+}
+
+export interface InventoryTransaction {
+  id: string;
+  variantId: string;
+  inventoryId: string;
+  type: InventoryTransactionType;
+  quantityChange: number;
+  availableStockAfter: number;
+  reservedStockAfter: number;
+  reason: string | null;
+  referenceId: string | null;
+  referenceType: string | null;
+  performedByAdminId: string | null;
+  createdAt: string;
+  variant?: {
+    id: string;
+    sku: string;
+    variantName: string;
+    unit: string;
+    product?: { id: string; name: string } | null;
+  };
+}
+
+export interface InventoryTransactionListResponse {
+  items: InventoryTransaction[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export type OrderStatus =
+  | "PENDING"
+  | "CONFIRMED"
+  | "PACKING"
+  | "OUT_FOR_DELIVERY"
+  | "DELIVERED"
+  | "CANCELLED";
+
+export type PaymentStatus = "PENDING" | "PAYMENT_SUBMITTED" | "PAID" | "FAILED";
+export type PaymentMethod = "COD" | "UPI";
+
+export interface OrderUser {
+  id: string;
+  fullName: string;
+  mobile: string;
+  email: string | null;
+}
+
+export interface OrderItem {
+  id: string;
+  orderId: string;
+  variantId: string;
+  productNameSnapshot: string;
+  unitPrice: string;
+  quantity: number;
+  totalPrice: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface Payment {
+  id: string;
+  orderId: string;
+  paymentMethod: PaymentMethod;
+  transactionReference: string | null;
+  paymentProofUrl: string | null;
+  amount: string;
+  paymentStatus: PaymentStatus;
+  verifiedByAdminId: string | null;
+  verifiedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+  paymentUrl?: string | null;
+  qrCodeData?: string | null;
+  statusMessage?: string;
+}
+
+export interface OrderStatusHistory {
+  id: string;
+  orderId: string;
+  status: OrderStatus;
+  remarks: string | null;
+  updatedByAdminId: string | null;
+  createdAt: string;
+}
+
+export interface AdminOrder {
+  id: string;
+  userId: string;
+  addressId: string;
+  orderNumber: string;
+  subtotal: string;
+  deliveryFee: string;
+  totalAmount: string;
+  currentStatus: OrderStatus;
+  paymentStatus: PaymentStatus;
+  notes: string | null;
+  deliveryName: string | null;
+  deliveryPhone: string | null;
+  deliveryAddress: string | null;
+  deliveryCity: string | null;
+  deliveryState: string | null;
+  deliveryPincode: string | null;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+  items: OrderItem[];
+  user?: OrderUser | null;
+  payments?: Payment[];
+  statusHistory?: OrderStatusHistory[];
+}
+
+export interface OrderListResponse {
+  items: AdminOrder[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface UpdateOrderStatusRequest {
+  status: OrderStatus;
+  remarks?: string;
+}
+
+export interface CartProductRef {
+  id: string;
+  name: string;
+  slug: string;
+  imageUrl: string | null;
+  category: Category;
+}
+
+export interface CartVariantRef {
+  id: string;
+  productId: string;
+  sku: string;
+  variantName: string;
+  unit: string;
+  weight: string | null;
+  price: string;
+  mrp: string | null;
+  isDefault: boolean;
+  isActive: boolean;
+  product: CartProductRef;
+}
+
+export interface CartItem {
+  id: string;
+  cartId: string;
+  variantId: string;
+  quantity: number;
+  unitPrice: string;
+  totalPrice: string;
+  createdAt?: string;
+  updatedAt?: string;
+  deletedAt?: string | null;
+  variant: CartVariantRef;
+}
+
+export interface Cart {
+  id: string;
+  userId: string;
+  subtotal: string;
+  itemCount: number;
+  items: CartItem[];
+}
+
+export type CartListResponse = Cart;
+
+export interface AddCartItemRequest {
+  variantId: string;
+  quantity: number;
+}
+
+export interface UpdateCartItemRequest {
+  quantity: number;
+}
+
+export interface Address {
+  id: string;
+  userId: string;
+  label: string;
+  fullName: string;
+  mobile: string;
+  addressLine1: string;
+  addressLine2: string | null;
+  landmark: string | null;
+  area: string;
+  city: string;
+  state: string;
+  pincode: string;
+  isDefault: boolean;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+}
+
+export type AddressListResponse = Address[];
+
+export interface CreateAddressRequest {
+  label: string;
+  fullName: string;
+  mobile: string;
+  addressLine1: string;
+  addressLine2?: string;
+  landmark?: string;
+  area: string;
+  city: string;
+  state: string;
+  pincode: string;
+  isDefault?: boolean;
+}
+
+export type UpdateAddressRequest = Partial<CreateAddressRequest>;
+
+export interface CreateOrderRequest {
+  addressId: string;
+}
+
+export type CustomerOrder = AdminOrder;
+
+export interface CustomerOrderListResponse {
+  items: CustomerOrder[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface PaymentProofRequest {
+  proof: File;
 }

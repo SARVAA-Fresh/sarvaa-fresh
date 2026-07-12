@@ -101,7 +101,7 @@ export class OrdersController {
   @ApiOperation({
     summary: 'Cancel an order',
     description:
-      'Cancel an order before it enters packing. Releases reserved inventory back to available stock. Only PENDING or CONFIRMED orders can be cancelled.',
+      'Cancel an order before it is out for delivery. Releases reserved inventory back to available stock. PENDING, CONFIRMED, and PACKING orders can be cancelled.',
   })
   @ApiParam({ name: 'id', description: 'Order UUID', example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890' })
   @ApiResponse({
