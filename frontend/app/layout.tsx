@@ -25,13 +25,13 @@ export const metadata: Metadata = {
   title: "SARVAA Fresh",
   description: "SARVAA Fresh storefront and admin portal",
   icons: {
-    icon: "/sarvaa-fresh-logo-v2.png",
-    apple: "/sarvaa-fresh-logo-v2.png",
+    icon: "/brand/icon.png",
+    apple: "/brand/icon.png",
   },
   openGraph: {
     title: "SARVAA Fresh",
     description: "SARVAA Fresh storefront and admin portal",
-    images: ["/sarvaa-fresh-logo-v2.png"],
+    images: ["/brand/logo.png"],
   },
 };
 

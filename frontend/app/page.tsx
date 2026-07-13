@@ -225,7 +225,7 @@ export default function HomePage() {
             <div className="grid gap-3 rounded-[28px] border border-emerald-100 bg-white p-4 shadow-sm sm:grid-cols-2">
               <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-50">
                 <Image
-                  src="/sarvaa-fresh-logo-v2.png"
+                  src="/brand/icon.png"
                   alt="SARVAA Fresh"
                   width={1254}
                   height={1254}

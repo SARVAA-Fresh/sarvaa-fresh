@@ -89,7 +89,7 @@ export function StorefrontChrome({
           <Link href="/" className="flex items-center gap-3">
             <span className="relative h-11 w-11 overflow-hidden rounded-2xl border border-emerald-100 bg-white shadow-sm">
               <Image
-                src="/sarvaa-fresh-logo-v2.png"
+                src="/brand/icon.png"
                 alt="SARVAA Fresh"
                 width={1254}
                 height={1254}
