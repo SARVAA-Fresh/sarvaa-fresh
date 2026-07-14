@@ -243,7 +243,7 @@ export default function ProtectedAdminLayout({
         >
           <span className="relative h-9 w-9 overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm">
             <Image
-              src="/sarvaa-fresh-logo-v2.png"
+              src="/brand/icon.png"
               alt="SARVAA Fresh logo"
               width={1254}
               height={1254}
@@ -338,7 +338,7 @@ export default function ProtectedAdminLayout({
           <div className="flex h-16 items-center gap-3 border-b border-zinc-200 px-5">
             <span className="relative h-10 w-10 overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm">
               <Image
-                src="/sarvaa-fresh-logo-v2.png"
+                src="/brand/icon.png"
                 alt="SARVAA Fresh logo"
                 width={1254}
                 height={1254}

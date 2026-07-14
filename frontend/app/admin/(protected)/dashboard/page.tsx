@@ -352,7 +352,7 @@ export default function AdminDashboardPage() {
         <div className="flex items-center gap-3">
           <span className="relative hidden h-14 w-14 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm sm:flex">
             <Image
-              src="/sarvaa-fresh-logo-v2.png"
+              src="/brand/icon.png"
               alt="SARVAA Fresh logo"
               width={1254}
               height={1254}
