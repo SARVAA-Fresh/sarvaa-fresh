@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
+  --background: #fafaf7;
   --foreground: #171717;
 }
 
@@ -12,15 +12,121 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  overflow-x: hidden;
+}
+
+html {
+  scroll-behavior: smooth;
+  overflow-x: hidden;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+@keyframes float-one {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-8deg);
+  }
+  50% {
+    transform: translateY(-14px) rotate(-5deg);
+  }
+}
+
+@keyframes float-two {
+  0%,
+  100% {
+    transform: translateY(0) rotate(7deg);
+  }
+  50% {
+    transform: translateY(12px) rotate(4deg);
+  }
+}
+
+@keyframes float-three {
+  0%,
+  100% {
+    transform: translateY(0) rotate(6deg);
+  }
+  50% {
+    transform: translateY(-10px) rotate(9deg);
+  }
+}
+
+@keyframes float-four {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-10deg);
+  }
+  50% {
+    transform: translateY(10px) rotate(-6deg);
+  }
+}
+
+@keyframes whatsapp-pulse {
+  0% {
+    box-shadow:
+      0 18px 42px rgb(20 83 45 / 0.25),
+      0 0 0 0 rgb(37 211 102 / 0.35);
+  }
+  70% {
+    box-shadow:
+      0 18px 42px rgb(20 83 45 / 0.25),
+      0 0 0 14px rgb(37 211 102 / 0);
+  }
+  100% {
+    box-shadow:
+      0 18px 42px rgb(20 83 45 / 0.25),
+      0 0 0 0 rgb(37 211 102 / 0);
+  }
+}
+
+.animate-float-1 {
+  animation: float-one 7s ease-in-out infinite;
+}
+
+.animate-float-2 {
+  animation: float-two 8s ease-in-out infinite;
+}
+
+.animate-float-3 {
+  animation: float-three 7.5s ease-in-out infinite;
+}
+
+.animate-float-4 {
+  animation: float-four 8.5s ease-in-out infinite;
+}
+
+.whatsapp-float {
+  animation: whatsapp-pulse 2.6s ease-out infinite;
+}
+
+@media (max-width: 767px) {
+  .animate-float-1,
+  .animate-float-2,
+  .animate-float-3,
+  .animate-float-4 {
+    animation: none;
+  }
+
+  .whatsapp-float {
+    animation-duration: 3.8s;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
