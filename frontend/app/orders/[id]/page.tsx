@@ -6,9 +6,10 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 
 import { ApiError } from "@/lib/api/types";
-import { buildAssetUrl, get, patch, postForm } from "@/lib/api/client";
-import type { CustomerOrder, Payment } from "@/lib/api/types";
+import { buildAssetUrl, get, isImageUrl, patch, postForm } from "@/lib/api/client";
+import type { CustomerOrder, Payment, PublicSettings } from "@/lib/api/types";
 import { useCustomerAuth } from "@/lib/customer-auth/CustomerAuthProvider";
+import { normalizeSettings } from "@/lib/settings/settings";
 
 function formatMoney(value: string | number): string {
   const numeric = typeof value === "number" ? value : Number.parseFloat(value);
@@ -52,6 +53,9 @@ export default function OrderDetailPage() {
   const [isUploadingProof, setIsUploadingProof] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
   const [cancelMessage, setCancelMessage] = useState<string | null>(null);
+  const [settings, setSettings] = useState<PublicSettings>(() =>
+    normalizeSettings(null),
+  );
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -64,13 +68,14 @@ export default function OrderDetailPage() {
       setIsLoading(true);
       setErrorMessage(null);
       try {
-        const [orderResult, paymentResult] = await Promise.allSettled([
+        const [orderResult, paymentResult, settingsResult] = await Promise.allSettled([
           get<CustomerOrder>(`/orders/${params.id}`, {
             authScope: "customer",
           }),
           get<Payment>(`/payments/order/${params.id}`, {
             authScope: "customer",
           }),
+          get<PublicSettings>("/settings/public", { skipAuth: true }),
         ]);
         if (cancelled) return;
         if (orderResult.status === "rejected") {
@@ -83,6 +88,11 @@ export default function OrderDetailPage() {
         } else {
           setPayment(null);
         }
+        setSettings(
+          normalizeSettings(
+            settingsResult.status === "fulfilled" ? settingsResult.value : null,
+          ),
+        );
       } catch (error) {
         if (cancelled) return;
         setErrorMessage(extractMessage(error));
@@ -112,6 +122,14 @@ export default function OrderDetailPage() {
     [order?.statusHistory],
   );
   const canCancel = order ? ["PENDING", "CONFIRMED", "PACKING"].includes(order.currentStatus) : false;
+  const rawQrImageUrl =
+    paymentSource?.qrImageUrl || settings.payment.qrImageUrl || null;
+  const qrImageUrl = isImageUrl(rawQrImageUrl) ? rawQrImageUrl : null;
+  const upiId = paymentSource?.upiId || settings.payment.upiId || null;
+  const merchantName =
+    paymentSource?.merchantName || settings.payment.upiDisplayName || null;
+  const instructions =
+    paymentSource?.paymentInstructions || settings.payment.instructions || null;
 
   async function handleUploadProof() {
     if (!paymentSource || !proofFile) {
@@ -257,13 +275,52 @@ export default function OrderDetailPage() {
 
           {paymentSource?.paymentMethod === "UPI" && (
             <div className="rounded-[28px] border border-zinc-200 bg-white p-5 shadow-sm sm:p-6">
-              <h2 className="text-lg font-semibold text-zinc-950">
-                Payment proof
-              </h2>
-              <p className="mt-2 text-sm text-zinc-600">
-                Upload a receipt image if verification is still pending.
-              </p>
-              <div className="mt-4 grid gap-3">
+              <div className="grid gap-4 lg:grid-cols-[1fr_220px]">
+                <div>
+                  <h2 className="text-lg font-semibold text-zinc-950">
+                    Payment Pending
+                  </h2>
+                  <div className="mt-3 space-y-2 rounded-2xl bg-zinc-50 p-4 text-sm">
+                    <div className="flex justify-between gap-3">
+                      <span className="text-zinc-600">Merchant</span>
+                      <strong className="text-right text-zinc-950">{merchantName ?? "Not configured"}</strong>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <span className="text-zinc-600">UPI ID</span>
+                      <strong className="break-all text-right text-zinc-950">{upiId ?? "Not configured"}</strong>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <span className="text-zinc-600">Amount</span>
+                      <strong className="text-zinc-950">{formatMoney(paymentSource.amount)}</strong>
+                    </div>
+                    {instructions && <p className="rounded-xl bg-white p-3 text-zinc-600">{instructions}</p>}
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {upiId && (
+                      <button
+                        type="button"
+                        onClick={() => void navigator.clipboard?.writeText(upiId)}
+                        className="rounded-full border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-800 hover:bg-zinc-50"
+                      >
+                        Copy UPI
+                      </button>
+                    )}
+                    {paymentSource.paymentUrl && (
+                      <a href={paymentSource.paymentUrl} className="rounded-full bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800">
+                        Open UPI
+                      </a>
+                    )}
+                  </div>
+                </div>
+                {qrImageUrl && (
+                  <img
+                    src={buildAssetUrl(qrImageUrl) ?? qrImageUrl}
+                    alt="UPI QR code"
+                    className="h-52 w-full rounded-2xl border border-zinc-200 object-contain"
+                  />
+                )}
+              </div>
+              <div className="mt-5 grid gap-3">
                 <input
                   type="file"
                   accept="image/jpeg,image/png,image/webp"

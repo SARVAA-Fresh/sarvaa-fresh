@@ -12,11 +12,13 @@ import { UpdateSettingDto } from './dto/update-setting.dto';
 import { SettingQueryDto } from './dto/setting-query.dto';
 import {
   PublicBusinessDto,
+  PublicBrandingDto,
   PublicContactDto,
   PublicDeliveryDto,
   PublicPaymentDto,
   PublicSettingsResponseDto,
   PublicStoreDto,
+  PublicSystemDto,
 } from './dto/public-settings-response.dto';
 import { Setting, SettingCategory, SettingType, Prisma } from '@prisma/client';
 
@@ -24,7 +26,11 @@ type ParsedValue = string | number | boolean | unknown;
 
 const PUBLIC_KEY_MAP: Record<string, string> = {
   'business.name': 'business.name',
+  'business.tagline': 'business.tagline',
+  'business.hero_heading': 'business.heroHeading',
+  'business.hero_subtitle': 'business.heroSubtitle',
   'business.logo_url': 'business.logoUrl',
+  'business.favicon_url': 'business.faviconUrl',
   'business.address': 'business.address',
   'business.city': 'business.city',
   'business.state': 'business.state',
@@ -34,6 +40,10 @@ const PUBLIC_KEY_MAP: Record<string, string> = {
   'business.description': 'business.description',
   'contact.phone': 'contact.phone',
   'contact.whatsapp': 'contact.whatsapp',
+  'contact.whatsapp_channel_url': 'contact.whatsappChannelUrl',
+  'contact.instagram_url': 'contact.instagramUrl',
+  'contact.instagram_handle': 'contact.instagramHandle',
+  'contact.delivery_area_description': 'contact.deliveryAreaDescription',
   'contact.support_email': 'contact.supportEmail',
   'contact.customer_care_hours': 'contact.customerCareHours',
   'delivery.fee': 'delivery.fee',
@@ -52,11 +62,18 @@ const PUBLIC_KEY_MAP: Record<string, string> = {
   'payment.cod_enabled': 'payment.codEnabled',
   'payment.upi_enabled': 'payment.upiEnabled',
   'payment.future_gateway_enabled': 'payment.futureGatewayEnabled',
+  'payment.instructions': 'payment.instructions',
   'store.open_time': 'store.openTime',
   'store.close_time': 'store.closeTime',
   'store.accept_orders': 'store.acceptOrders',
+  'store.closed': 'store.storeClosed',
+  'store.holiday_mode': 'store.holidayMode',
   'store.maintenance_mode': 'store.maintenanceMode',
   'store.maintenance_message': 'store.maintenanceMessage',
+  'branding.theme_color': 'branding.themeColor',
+  'branding.accent_color': 'branding.accentColor',
+  'system.store_version': 'system.storeVersion',
+  'system.environment': 'system.environment',
 };
 
 interface SeedRow {
@@ -70,25 +87,33 @@ interface SeedRow {
 }
 
 const SEED_SETTINGS: SeedRow[] = [
-  { key: 'business.name', value: '', type: SettingType.STRING, category: SettingCategory.BUSINESS, isPublic: true },
-  { key: 'business.logo_url', value: '', type: SettingType.STRING, category: SettingCategory.BUSINESS, isPublic: true },
+  { key: 'business.name', value: 'SARVAA Fresh', type: SettingType.STRING, category: SettingCategory.BUSINESS, isPublic: true },
+  { key: 'business.tagline', value: 'Fresh Fruits & Vegetables', type: SettingType.STRING, category: SettingCategory.BUSINESS, isPublic: true },
+  { key: 'business.hero_heading', value: 'Fresh Fruits & Vegetables Delivered Across Sagwara', type: SettingType.STRING, category: SettingCategory.BUSINESS, isPublic: true },
+  { key: 'business.hero_subtitle', value: 'Handpicked every morning. Freshness guaranteed. Delivered with care from your trusted local store.', type: SettingType.STRING, category: SettingCategory.BUSINESS, isPublic: true },
+  { key: 'business.logo_url', value: '/brand/logo.png', type: SettingType.STRING, category: SettingCategory.BUSINESS, isPublic: true },
+  { key: 'business.favicon_url', value: '/brand/icon.png', type: SettingType.STRING, category: SettingCategory.BUSINESS, isPublic: true },
   { key: 'business.address', value: '', type: SettingType.STRING, category: SettingCategory.BUSINESS, isPublic: true },
-  { key: 'business.city', value: '', type: SettingType.STRING, category: SettingCategory.BUSINESS, isPublic: true },
-  { key: 'business.state', value: '', type: SettingType.STRING, category: SettingCategory.BUSINESS, isPublic: true },
-  { key: 'business.country', value: '', type: SettingType.STRING, category: SettingCategory.BUSINESS, isPublic: true },
+  { key: 'business.city', value: 'Sagwara', type: SettingType.STRING, category: SettingCategory.BUSINESS, isPublic: true },
+  { key: 'business.state', value: 'Rajasthan', type: SettingType.STRING, category: SettingCategory.BUSINESS, isPublic: true },
+  { key: 'business.country', value: 'India', type: SettingType.STRING, category: SettingCategory.BUSINESS, isPublic: true },
   { key: 'business.pincode', value: '', type: SettingType.STRING, category: SettingCategory.BUSINESS, isPublic: true },
   { key: 'business.gst_number', value: '', type: SettingType.STRING, category: SettingCategory.BUSINESS, isPublic: true },
   { key: 'business.description', value: '', type: SettingType.STRING, category: SettingCategory.BUSINESS, isPublic: true },
   { key: 'contact.phone', value: '', type: SettingType.STRING, category: SettingCategory.CONTACT, isPublic: true },
   { key: 'contact.whatsapp', value: '', type: SettingType.STRING, category: SettingCategory.CONTACT, isPublic: true },
+  { key: 'contact.whatsapp_channel_url', value: 'https://whatsapp.com/channel/0029VbCoSLnFy72B3UiivC1k', type: SettingType.STRING, category: SettingCategory.CONTACT, isPublic: true },
+  { key: 'contact.instagram_url', value: 'https://www.instagram.com/sarvaafresh/', type: SettingType.STRING, category: SettingCategory.CONTACT, isPublic: true },
+  { key: 'contact.instagram_handle', value: '@sarvaafresh', type: SettingType.STRING, category: SettingCategory.CONTACT, isPublic: true },
+  { key: 'contact.delivery_area_description', value: 'Sagwara, Rajasthan', type: SettingType.STRING, category: SettingCategory.CONTACT, isPublic: true },
   { key: 'contact.support_email', value: '', type: SettingType.STRING, category: SettingCategory.CONTACT, isPublic: true },
   { key: 'contact.customer_care_hours', value: '', type: SettingType.STRING, category: SettingCategory.CONTACT, isPublic: true },
-  { key: 'delivery.fee', value: '0', type: SettingType.NUMBER, category: SettingCategory.DELIVERY, isPublic: true },
-  { key: 'delivery.free_delivery_threshold', value: '0', type: SettingType.NUMBER, category: SettingCategory.DELIVERY, isPublic: true },
-  { key: 'delivery.minimum_order_value', value: '0', type: SettingType.NUMBER, category: SettingCategory.DELIVERY, isPublic: true },
-  { key: 'delivery.maximum_radius', value: '0', type: SettingType.NUMBER, category: SettingCategory.DELIVERY, isPublic: true },
-  { key: 'delivery.estimated_time', value: '', type: SettingType.STRING, category: SettingCategory.DELIVERY, isPublic: true },
-  { key: 'delivery.same_day_enabled', value: 'false', type: SettingType.BOOLEAN, category: SettingCategory.DELIVERY, isPublic: true },
+  { key: 'delivery.fee', value: '20', type: SettingType.NUMBER, category: SettingCategory.DELIVERY, isPublic: true },
+  { key: 'delivery.free_delivery_threshold', value: '200', type: SettingType.NUMBER, category: SettingCategory.DELIVERY, isPublic: true },
+  { key: 'delivery.minimum_order_value', value: '80', type: SettingType.NUMBER, category: SettingCategory.DELIVERY, isPublic: true },
+  { key: 'delivery.maximum_radius', value: '10', type: SettingType.NUMBER, category: SettingCategory.DELIVERY, isPublic: true },
+  { key: 'delivery.estimated_time', value: '30-60 Minutes', type: SettingType.STRING, category: SettingCategory.DELIVERY, isPublic: true },
+  { key: 'delivery.same_day_enabled', value: 'true', type: SettingType.BOOLEAN, category: SettingCategory.DELIVERY, isPublic: true },
   { key: 'payment.upi_id', value: '', type: SettingType.STRING, category: SettingCategory.PAYMENT, isPublic: true },
   { key: 'payment.upi_display_name', value: '', type: SettingType.STRING, category: SettingCategory.PAYMENT, isPublic: true },
   { key: 'payment.qr_image_url', value: '', type: SettingType.STRING, category: SettingCategory.PAYMENT, isPublic: true },
@@ -96,14 +121,21 @@ const SEED_SETTINGS: SeedRow[] = [
   { key: 'payment.account_holder_name', value: '', type: SettingType.STRING, category: SettingCategory.PAYMENT, isPublic: true },
   { key: 'payment.branch', value: '', type: SettingType.STRING, category: SettingCategory.PAYMENT, isPublic: true },
   { key: 'payment.ifsc', value: '', type: SettingType.STRING, category: SettingCategory.PAYMENT, isPublic: true },
-  { key: 'payment.cod_enabled', value: 'false', type: SettingType.BOOLEAN, category: SettingCategory.PAYMENT, isPublic: true },
-  { key: 'payment.upi_enabled', value: 'false', type: SettingType.BOOLEAN, category: SettingCategory.PAYMENT, isPublic: true },
+  { key: 'payment.cod_enabled', value: 'true', type: SettingType.BOOLEAN, category: SettingCategory.PAYMENT, isPublic: true },
+  { key: 'payment.upi_enabled', value: 'true', type: SettingType.BOOLEAN, category: SettingCategory.PAYMENT, isPublic: true },
   { key: 'payment.future_gateway_enabled', value: 'false', type: SettingType.BOOLEAN, category: SettingCategory.PAYMENT, isPublic: true },
-  { key: 'store.open_time', value: '', type: SettingType.STRING, category: SettingCategory.STORE, isPublic: true },
-  { key: 'store.close_time', value: '', type: SettingType.STRING, category: SettingCategory.STORE, isPublic: true },
+  { key: 'payment.instructions', value: 'Pay with UPI and upload payment proof for verification.', type: SettingType.STRING, category: SettingCategory.PAYMENT, isPublic: true },
+  { key: 'store.open_time', value: '06:00', type: SettingType.STRING, category: SettingCategory.STORE, isPublic: true },
+  { key: 'store.close_time', value: '21:00', type: SettingType.STRING, category: SettingCategory.STORE, isPublic: true },
   { key: 'store.accept_orders', value: 'true', type: SettingType.BOOLEAN, category: SettingCategory.STORE, isPublic: true },
+  { key: 'store.closed', value: 'false', type: SettingType.BOOLEAN, category: SettingCategory.STORE, isPublic: true },
+  { key: 'store.holiday_mode', value: 'false', type: SettingType.BOOLEAN, category: SettingCategory.STORE, isPublic: true },
   { key: 'store.maintenance_mode', value: 'false', type: SettingType.BOOLEAN, category: SettingCategory.STORE, isPublic: true },
   { key: 'store.maintenance_message', value: '', type: SettingType.STRING, category: SettingCategory.STORE, isPublic: true },
+  { key: 'branding.theme_color', value: '#14532d', type: SettingType.STRING, category: SettingCategory.STORE, isPublic: true },
+  { key: 'branding.accent_color', value: '#4CAF50', type: SettingType.STRING, category: SettingCategory.STORE, isPublic: true },
+  { key: 'system.store_version', value: 'MVP', type: SettingType.STRING, category: SettingCategory.SYSTEM, isPublic: true },
+  { key: 'system.environment', value: 'development', type: SettingType.STRING, category: SettingCategory.SYSTEM, isPublic: false },
 ];
 
 @Injectable()
@@ -177,6 +209,8 @@ export class SettingsService implements OnModuleInit {
     response.payment = new PublicPaymentDto();
     response.payment.availableMethods = [];
     response.store = new PublicStoreDto();
+    response.branding = new PublicBrandingDto();
+    response.system = new PublicSystemDto();
 
     for (const row of rows) {
       const field = PUBLIC_KEY_MAP[row.key];

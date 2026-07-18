@@ -4,23 +4,26 @@ import {
   ForbiddenException,
   BadRequestException,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '@/prisma/prisma.service';
-import { Prisma } from '@prisma/client';
+import { PaymentMethod, Prisma } from '@prisma/client';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { StorageService } from '@/storage/storage.service';
+import { SettingsService } from '@/settings/settings.service';
 
 @Injectable()
 export class PaymentsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly configService: ConfigService,
     private readonly storageService: StorageService,
+    private readonly settingsService: SettingsService,
   ) {}
 
-  private generateUpiUrl(orderNumber: string, amount: number): string {
-    const upiId = this.configService.get<string>('UPI_ID', 'dummy@sarvaa');
-    const upiName = this.configService.get<string>('UPI_NAME', 'SARVAA Fresh');
+  private async paymentSettings() {
+    const settings = await this.settingsService.findAllPublic();
+    return settings.payment;
+  }
+
+  private generateUpiUrl(orderNumber: string, amount: number, upiId: string, upiName: string): string {
     const reference = encodeURIComponent(orderNumber);
     return `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(upiName)}&am=${amount.toFixed(2)}&cu=INR&tn=${reference}&tr=${reference}`;
   }
@@ -45,6 +48,7 @@ export class PaymentsService {
     payment: any,
     upiUrl?: string | null,
     qrCodeData?: string | null,
+    paymentSettings?: Awaited<ReturnType<PaymentsService['paymentSettings']>>,
   ) {
     const statusMessage =
       payment.paymentStatus === 'PAYMENT_SUBMITTED'
@@ -56,12 +60,33 @@ export class PaymentsService {
       amount: payment.amount.toString(),
       paymentUrl: upiUrl ?? null,
       qrCodeData: qrCodeData ?? null,
+      merchantName: paymentSettings?.upiDisplayName ?? null,
+      upiId: paymentSettings?.upiId ?? null,
+      qrImageUrl: paymentSettings?.qrImageUrl ?? null,
+      paymentInstructions: paymentSettings?.instructions ?? null,
       statusMessage,
     };
   }
 
+  private async assertPaymentMethodEnabled(method: PaymentMethod) {
+    const settings = await this.paymentSettings();
+    if (method === PaymentMethod.COD && settings.codEnabled !== true) {
+      throw new BadRequestException('Cash on Delivery is currently unavailable');
+    }
+    if (method === PaymentMethod.UPI) {
+      if (settings.upiEnabled !== true) {
+        throw new BadRequestException('UPI is currently unavailable');
+      }
+      if (!settings.upiId || !settings.upiDisplayName) {
+        throw new BadRequestException('UPI payment settings are incomplete');
+      }
+    }
+    return settings;
+  }
+
   async generatePayment(orderId: string, dto: CreatePaymentDto, userId: string) {
     const order = await this.assertOrderOwnership(orderId, userId);
+    const settings = await this.assertPaymentMethodEnabled(dto.paymentMethod);
 
     // Prevent duplicate active payments
     const existing = await this.prisma.payment.findFirst({
@@ -84,15 +109,16 @@ export class PaymentsService {
 
     if (dto.paymentMethod === 'UPI') {
       const amount = parseFloat(order.totalAmount.toString());
-      const upiUrl = this.generateUpiUrl(order.orderNumber, amount);
-      return this.mapPaymentResponse(payment, upiUrl, upiUrl);
+      const upiUrl = this.generateUpiUrl(order.orderNumber, amount, settings.upiId!, settings.upiDisplayName!);
+      return this.mapPaymentResponse(payment, upiUrl, upiUrl, settings);
     }
 
-    return this.mapPaymentResponse(payment);
+    return this.mapPaymentResponse(payment, null, null, settings);
   }
 
   async submitPayment(orderId: string, userId: string) {
     const order = await this.assertOrderOwnership(orderId, userId);
+    const settings = await this.paymentSettings();
 
     const payment = await this.prisma.payment.findFirst({
       where: { orderId, deletedAt: null },
@@ -133,9 +159,11 @@ export class PaymentsService {
     });
 
     const amount = parseFloat(order.totalAmount.toString());
-    const upiUrl = this.generateUpiUrl(order.orderNumber, amount);
+    const upiUrl = settings.upiId && settings.upiDisplayName
+      ? this.generateUpiUrl(order.orderNumber, amount, settings.upiId, settings.upiDisplayName)
+      : null;
 
-    return this.mapPaymentResponse(updated, upiUrl, upiUrl);
+    return this.mapPaymentResponse(updated, upiUrl, upiUrl, settings);
   }
 
   async submitPaymentProof(
@@ -148,6 +176,7 @@ export class PaymentsService {
     }
 
     const order = await this.assertOrderOwnership(orderId, userId);
+    const settings = await this.paymentSettings();
 
     const payment = await this.prisma.payment.findFirst({
       where: { orderId, deletedAt: null },
@@ -191,13 +220,16 @@ export class PaymentsService {
     });
 
     const amount = parseFloat(order.totalAmount.toString());
-    const upiUrl = this.generateUpiUrl(order.orderNumber, amount);
+    const upiUrl = settings.upiId && settings.upiDisplayName
+      ? this.generateUpiUrl(order.orderNumber, amount, settings.upiId, settings.upiDisplayName)
+      : null;
 
-    return this.mapPaymentResponse(updated, upiUrl, upiUrl);
+    return this.mapPaymentResponse(updated, upiUrl, upiUrl, settings);
   }
 
   async getPayment(orderId: string, userId: string) {
     const order = await this.assertOrderOwnership(orderId, userId);
+    const settings = await this.paymentSettings();
 
     const payment = await this.prisma.payment.findFirst({
       where: { orderId, deletedAt: null },
@@ -213,11 +245,13 @@ export class PaymentsService {
 
     if (payment.paymentMethod === 'UPI') {
       const amount = parseFloat(order.totalAmount.toString());
-      paymentUrl = this.generateUpiUrl(order.orderNumber, amount);
+      paymentUrl = settings.upiId && settings.upiDisplayName
+        ? this.generateUpiUrl(order.orderNumber, amount, settings.upiId, settings.upiDisplayName)
+        : null;
       qrCodeData = paymentUrl;
     }
 
-    return this.mapPaymentResponse(payment, paymentUrl, qrCodeData);
+    return this.mapPaymentResponse(payment, paymentUrl, qrCodeData, settings);
   }
 
   async markPaid(orderId: string) {
@@ -261,7 +295,7 @@ export class PaymentsService {
     return this.prisma.$transaction(async (tx) => {
       const updatedPayment = await tx.payment.update({
         where: { id: payment.id },
-        data: { paymentStatus: 'PAID' },
+        data: { paymentStatus: 'PAID', verifiedAt: new Date() },
       });
 
       await tx.order.update({
@@ -308,19 +342,19 @@ export class PaymentsService {
     return this.prisma.$transaction(async (tx) => {
       const updatedPayment = await tx.payment.update({
         where: { id: payment.id },
-        data: { paymentStatus: 'FAILED' },
+        data: { paymentStatus: 'PENDING', paymentProofUrl: null },
       });
 
       await tx.order.update({
         where: { id: orderId },
-        data: { paymentStatus: 'FAILED' },
+        data: { paymentStatus: 'PENDING' },
       });
 
       await tx.orderStatusHistory.create({
         data: {
           orderId,
           status: order.currentStatus,
-          remarks: 'Payment Rejected',
+          remarks: 'Payment proof rejected. Awaiting new payment proof.',
         },
       });
 

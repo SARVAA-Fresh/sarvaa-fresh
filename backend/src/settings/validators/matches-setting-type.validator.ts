@@ -13,9 +13,10 @@ export class MatchesSettingTypeConstraint implements ValidatorConstraintInterfac
     const object = args.object as Record<string, unknown>;
     const type = object.type as SettingType | undefined;
 
-    if (typeof value !== 'string' || value.length === 0) {
+    if (typeof value !== 'string') {
       return false;
     }
+    if (value.length === 0) return true;
 
     switch (type) {
       case SettingType.STRING:

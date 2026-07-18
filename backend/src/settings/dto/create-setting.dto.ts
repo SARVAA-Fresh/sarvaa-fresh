@@ -20,7 +20,6 @@ export class CreateSettingDto {
   key!: string;
 
   @IsString()
-  @IsNotEmpty()
   @MatchesSettingType()
   @ApiProperty({ example: 'Sarvaa Fresh' })
   value!: string;

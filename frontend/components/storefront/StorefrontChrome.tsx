@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useEffect, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
@@ -15,10 +15,11 @@ import {
   UserRound,
 } from "lucide-react";
 
+import { get } from "@/lib/api/client";
+import type { PublicSettings } from "@/lib/api/types";
 import { useCart } from "@/lib/cart/CartProvider";
 import { useCustomerAuth } from "@/lib/customer-auth/CustomerAuthProvider";
-
-const whatsappChannelUrl = "https://whatsapp.com/channel/0029VbCoSLnFy72B3UiivC1k";
+import { normalizeSettings } from "@/lib/settings/settings";
 
 let headerMounted = false;
 const headerMountedListeners = new Set<() => void>();
@@ -47,10 +48,31 @@ export function StorefrontChrome({
   );
   const { itemCount } = useCart();
   const { customer, isAuthenticated, logout } = useCustomerAuth();
+  const [settings, setSettings] = useState<PublicSettings>(() =>
+    normalizeSettings(null),
+  );
 
   useEffect(() => {
     headerMounted = true;
     emitHeaderMountedChange();
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadSettings() {
+      try {
+        const data = await get<PublicSettings>("/settings/public", {
+          skipAuth: true,
+        });
+        if (!cancelled) setSettings(normalizeSettings(data));
+      } catch {
+        if (!cancelled) setSettings(normalizeSettings(null));
+      }
+    }
+    void loadSettings();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const isActive = (href: string) =>
@@ -78,8 +100,8 @@ export function StorefrontChrome({
         <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-3 px-4 py-2.5 sm:gap-4 sm:px-6 sm:py-3">
           <Link href="/" className="group flex min-w-0 items-center gap-2.5 sm:gap-3.5">
             <Image
-              src="/brand/logo.png"
-              alt="SARVAA Fresh"
+              src={settings.business.logoUrl || "/brand/logo.png"}
+              alt={settings.business.name || "SARVAA Fresh"}
               width={1254}
               height={1254}
               sizes="(max-width: 640px) 40px, 48px"
@@ -88,10 +110,10 @@ export function StorefrontChrome({
             />
             <span className="min-w-0 leading-tight">
               <span className="block whitespace-nowrap text-sm font-black tracking-tight text-[#14532d] min-[390px]:text-base sm:text-lg">
-                SARVAA Fresh
+                {settings.business.name || "SARVAA Fresh"}
               </span>
               <span className="block max-w-[160px] truncate whitespace-nowrap text-[11px] font-bold text-zinc-500 min-[390px]:max-w-none min-[390px]:text-xs">
-                Fresh Fruits & Vegetables
+                {settings.business.tagline || "Fresh Fruits & Vegetables"}
               </span>
             </span>
           </Link>
@@ -178,7 +200,10 @@ export function StorefrontChrome({
       </main>
 
       <a
-        href={whatsappChannelUrl}
+        href={
+          settings.contact.whatsappChannelUrl ||
+          "https://whatsapp.com/channel/0029VbCoSLnFy72B3UiivC1k"
+        }
         target="_blank"
         rel="noreferrer"
         aria-label="Join our WhatsApp Channel"

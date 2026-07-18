@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -8,22 +9,29 @@ import {
   Patch,
   Post,
   Query,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiConsumes, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { SettingsService } from './settings.service';
 import { CreateSettingDto } from './dto/create-setting.dto';
 import { UpdateSettingDto } from './dto/update-setting.dto';
 import { SettingQueryDto } from './dto/setting-query.dto';
 import { AdminJwtGuard } from '@/common/guards/admin-jwt.guard';
 import { Setting } from '@prisma/client';
+import { StorageService } from '@/storage/storage.service';
 
 @ApiTags('Admin Settings')
 @Controller('admin/settings')
 @UseGuards(AdminJwtGuard)
 @ApiBearerAuth('Bearer-auth')
 export class AdminSettingsController {
-  constructor(private readonly settingsService: SettingsService) {}
+  constructor(
+    private readonly settingsService: SettingsService,
+    private readonly storageService: StorageService,
+  ) {}
 
   @Get()
   @ApiResponse({ status: 200, description: 'Paginated settings list' })
@@ -50,6 +58,18 @@ export class AdminSettingsController {
   @ApiResponse({ status: 409, description: 'Duplicate key' })
   async create(@Body() dto: CreateSettingDto): Promise<Setting> {
     return this.settingsService.create(dto);
+  }
+
+  @Post('upload')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }))
+  @ApiConsumes('multipart/form-data')
+  @ApiResponse({ status: 201, description: 'Image uploaded' })
+  async uploadImage(@UploadedFile() file: Express.Multer.File): Promise<{ url: string }> {
+    if (!file) {
+      throw new BadRequestException('Image file is required');
+    }
+    const saved = await this.storageService.saveImage(file);
+    return { url: saved.url };
   }
 
   @Patch(':id')

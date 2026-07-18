@@ -5,13 +5,14 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 import { ApiError } from "@/lib/api/types";
-import { get, post, postForm } from "@/lib/api/client";
+import { buildAssetUrl, get, isImageUrl, post, postForm } from "@/lib/api/client";
 import type {
   Address,
   AddressListResponse,
   CreateOrderRequest,
   Payment,
   PaymentMethod,
+  PublicSettings,
 } from "@/lib/api/types";
 import { useCart } from "@/lib/cart/CartProvider";
 import { useCustomerAuth } from "@/lib/customer-auth/CustomerAuthProvider";
@@ -21,15 +22,16 @@ import {
   type AddressFormState,
   toAddressRequest,
 } from "@/components/storefront/AddressForm";
+import {
+  calculateDeliveryPolicy,
+  normalizeSettings,
+  storeStatusMessage,
+} from "@/lib/settings/settings";
 
 function formatMoney(value: string | number): string {
   const numeric = typeof value === "number" ? value : Number.parseFloat(value);
   if (!Number.isFinite(numeric)) return "Rs. 0.00";
   return `Rs. ${numeric.toFixed(2)}`;
-}
-
-function qrCodeSrc(value: string): string {
-  return `https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=12&data=${encodeURIComponent(value)}`;
 }
 
 function Spinner() {
@@ -125,6 +127,34 @@ export default function CheckoutPage() {
   const [proofError, setProofError] = useState<string | null>(null);
   const [isUploadingProof, setIsUploadingProof] = useState(false);
   const [proofSuccess, setProofSuccess] = useState<string | null>(null);
+  const [settings, setSettings] = useState<PublicSettings>(() =>
+    normalizeSettings(null),
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadSettings() {
+      try {
+        const data = await get<PublicSettings>("/settings/public", {
+          skipAuth: true,
+        });
+        if (!cancelled) {
+          const nextSettings = normalizeSettings(data);
+          setSettings(nextSettings);
+          const methods = nextSettings.payment.availableMethods;
+          if (methods.length > 0 && !methods.includes(paymentMethod)) {
+            setPaymentMethod(methods[0]);
+          }
+        }
+      } catch {
+        if (!cancelled) setSettings(normalizeSettings(null));
+      }
+    }
+    void loadSettings();
+    return () => {
+      cancelled = true;
+    };
+  }, [paymentMethod]);
 
   useEffect(() => {
     let cancelled = false;
@@ -171,6 +201,19 @@ export default function CheckoutPage() {
     () => addresses.find((address) => address.id === selectedAddressId) ?? null,
     [addresses, selectedAddressId],
   );
+  const deliveryPolicy = calculateDeliveryPolicy(subtotal, settings);
+  const statusMessage = storeStatusMessage(settings);
+  const availablePaymentMethods = settings.payment.availableMethods.length
+    ? settings.payment.availableMethods
+    : [];
+  const payableTotal = subtotal + deliveryPolicy.deliveryCharge;
+  const noPaymentMethods = availablePaymentMethods.length === 0;
+  const placedOrderQrImageUrl =
+    placedOrder?.payment?.qrImageUrl && isImageUrl(placedOrder.payment.qrImageUrl)
+      ? placedOrder.payment.qrImageUrl
+      : settings.payment.qrImageUrl && isImageUrl(settings.payment.qrImageUrl)
+        ? settings.payment.qrImageUrl
+        : null;
 
   async function handleCreateAddress() {
     const payload = toAddressRequest(addressForm);
@@ -202,6 +245,18 @@ export default function CheckoutPage() {
     }
     if (lines.length === 0) {
       setPlaceError("Your cart is empty.");
+      return;
+    }
+    if (deliveryPolicy.checkoutDisabled) {
+      setPlaceError(statusMessage ?? deliveryPolicy.message);
+      return;
+    }
+    if (noPaymentMethods) {
+      setPlaceError("No payment method is currently available. Please contact the store.");
+      return;
+    }
+    if (!availablePaymentMethods.includes(paymentMethod)) {
+      setPlaceError("Selected payment method is currently unavailable.");
       return;
     }
 
@@ -325,32 +380,63 @@ export default function CheckoutPage() {
                 Complete the payment
               </h2>
               <p className="text-sm text-zinc-600">
-                Use the UPI link shown in your app, then upload the receipt image
-                here.
+                Complete the UPI payment, then upload the receipt image here.
               </p>
               <div className="rounded-2xl bg-zinc-50 p-4 text-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-zinc-600">Merchant</span>
+                  <span className="text-right font-semibold text-zinc-950">
+                    {placedOrder.payment.merchantName || settings.payment.upiDisplayName || "Not configured"}
+                  </span>
+                </div>
+                <div className="mt-2 flex items-center justify-between gap-3">
+                  <span className="text-zinc-600">UPI ID</span>
+                  <span className="break-all text-right font-semibold text-zinc-950">
+                    {placedOrder.payment.upiId || settings.payment.upiId || "Not configured"}
+                  </span>
+                </div>
                 <div className="flex items-center justify-between">
                   <span className="text-zinc-600">Amount</span>
                   <span className="font-semibold text-zinc-950">
                     {formatMoney(placedOrder.payment.amount)}
                   </span>
                 </div>
-                {placedOrder.payment.paymentUrl && (
-                  <a
-                    href={placedOrder.payment.paymentUrl}
-                    className="mt-3 inline-flex text-sm font-semibold text-emerald-700 hover:text-emerald-800"
-                  >
-                    Open UPI payment link
-                  </a>
+                {(placedOrder.payment.paymentInstructions || settings.payment.instructions) && (
+                  <p className="mt-3 rounded-xl bg-white p-3 text-zinc-600">
+                    {placedOrder.payment.paymentInstructions || settings.payment.instructions}
+                  </p>
                 )}
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {(placedOrder.payment.upiId || settings.payment.upiId) && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        void navigator.clipboard?.writeText(
+                          placedOrder.payment?.upiId || settings.payment.upiId || "",
+                        )
+                      }
+                      className="rounded-full border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-800 hover:bg-zinc-50"
+                    >
+                      Copy UPI ID
+                    </button>
+                  )}
+                  {placedOrder.payment.paymentUrl && (
+                    <a
+                      href={placedOrder.payment.paymentUrl}
+                      className="rounded-full bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800"
+                    >
+                      Open UPI Intent
+                    </a>
+                  )}
+                </div>
               </div>
             </div>
 
             <div className="space-y-3 rounded-2xl border border-zinc-200 p-4">
-              {placedOrder.payment.qrCodeData && (
+              {placedOrderQrImageUrl && (
                 <div className="rounded-2xl bg-white p-3 text-center">
                   <img
-                    src={qrCodeSrc(placedOrder.payment.qrCodeData)}
+                    src={buildAssetUrl(placedOrderQrImageUrl) ?? placedOrderQrImageUrl}
                     alt="UPI payment QR code"
                     className="mx-auto h-48 w-48 rounded-xl object-contain"
                   />
@@ -537,7 +623,11 @@ export default function CheckoutPage() {
             Payment method
           </p>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            {(["COD", "UPI"] as PaymentMethod[]).map((method) => (
+            {noPaymentMethods ? (
+              <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700 sm:col-span-2">
+                No payment method is currently available. Please contact the store.
+              </div>
+            ) : availablePaymentMethods.map((method) => (
               <button
                 key={method}
                 type="button"
@@ -585,6 +675,24 @@ export default function CheckoutPage() {
               {formatMoney(subtotal)}
             </span>
           </div>
+          <div className="flex items-center justify-between">
+            <span className="text-zinc-600">Delivery</span>
+            <span className="font-medium text-zinc-950">
+              {deliveryPolicy.deliveryCharge > 0
+                ? formatMoney(deliveryPolicy.deliveryCharge)
+                : "FREE"}
+            </span>
+          </div>
+          <div className="flex items-center justify-between border-t border-zinc-200 pt-3">
+            <span className="font-semibold text-zinc-700">Total</span>
+            <span className="text-base font-bold text-zinc-950">
+              {formatMoney(payableTotal)}
+            </span>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
+          {statusMessage ?? deliveryPolicy.message}
         </div>
 
         {selectedAddress && (
@@ -604,7 +712,7 @@ export default function CheckoutPage() {
         <button
           type="button"
           onClick={() => void handlePlaceOrder()}
-          disabled={isPlacingOrder || lines.length === 0}
+          disabled={isPlacingOrder || lines.length === 0 || deliveryPolicy.checkoutDisabled || noPaymentMethods}
           className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-emerald-700 px-4 py-3 text-sm font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-zinc-300"
         >
           {isPlacingOrder ? <Spinner /> : <Icon name="coin" className="h-4 w-4" />}

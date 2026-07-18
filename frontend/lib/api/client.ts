@@ -58,6 +58,9 @@ export function buildApiUrl(path: string): string {
   return buildUrl(path);
 }
 
+const IMAGE_SRC_RE =
+  /^(https?:\/\/|\/|data:image\/)(?!.*\s).*\.(jpg|jpeg|png|webp|gif|svg|bmp)/i;
+
 export function buildAssetUrl(path: string | null | undefined): string | null {
   if (!path) {
     return null;
@@ -69,6 +72,22 @@ export function buildAssetUrl(path: string | null | undefined): string | null {
   const origin = `${apiUrl.protocol}//${apiUrl.host}`;
   const suffix = path.startsWith("/") ? path : `/${path}`;
   return `${origin}${suffix}`;
+}
+
+export function isImageUrl(path: string | null | undefined): boolean {
+  if (!path || typeof path !== "string") {
+    return false;
+  }
+  const trimmed = path.trim();
+  if (trimmed.length === 0) {
+    return false;
+  }
+  if (IMAGE_SRC_RE.test(trimmed)) {
+    return true;
+  }
+  // A bare value like "ok" or any non-empty string that does not look like an
+  // image source should not be treated as an image URL.
+  return false;
 }
 
 async function request<T>(

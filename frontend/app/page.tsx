@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import Image from "next/image";
@@ -11,19 +11,28 @@ import {
   ExternalLink,
   Heart,
   Leaf,
+  Mail,
+  MapPin,
   MessageCircle,
   PackageCheck,
+  Phone,
   ShieldCheck,
   ShoppingBag,
   Sparkles,
   Sprout,
   Truck,
+  Clock,
 } from "lucide-react";
 
 import { ApiError } from "@/lib/api/types";
 import { get } from "@/lib/api/client";
-import type { CategoryListResponse, ProductListResponse } from "@/lib/api/types";
+import type { CategoryListResponse, ProductListResponse, PublicSettings } from "@/lib/api/types";
 import { ProductCard } from "@/components/storefront/ProductCard";
+import {
+  formatStoreHours,
+  normalizeSettings,
+  storeStatusMessage,
+} from "@/lib/settings/settings";
 
 const categoryChips = [
   { label: "Fruits", icon: "Apple" },
@@ -32,9 +41,6 @@ const categoryChips = [
   { label: "Best Sellers", icon: "Star" },
   { label: "Seasonal", icon: "Mango" },
 ];
-
-const instagramUrl = "https://www.instagram.com/sarvaafresh/";
-const whatsappChannelUrl = "https://whatsapp.com/channel/0029VbCoSLnFy72B3UiivC1k";
 
 const heroProduce = [
   {
@@ -100,7 +106,10 @@ function SectionHeader({
   );
 }
 
-function Hero() {
+function Hero({ settings }: { settings: PublicSettings }) {
+  const area = settings.contact.deliveryAreaDescription || settings.business.city || "Sagwara";
+  const statusMessage = storeStatusMessage(settings);
+
   return (
     <>
     <section className="overflow-hidden rounded-[24px] bg-[#14532d] px-5 py-6 text-white shadow-[0_18px_50px_rgba(20,83,45,0.18)] lg:hidden">
@@ -111,13 +120,17 @@ function Hero() {
         </div>
         <div className="space-y-3">
           <h1 className="text-3xl font-bold leading-tight tracking-tight min-[390px]:text-4xl">
-            Fresh Fruits & Vegetables Delivered Across Sagwara
+            {settings.business.heroHeading}
           </h1>
           <p className="text-sm leading-6 text-emerald-50/90 min-[390px]:text-base">
-            Handpicked every morning and delivered with care from your trusted
-            local store.
+            {settings.business.heroSubtitle}
           </p>
         </div>
+        {statusMessage && (
+          <div className="rounded-2xl border border-white/20 bg-white/10 px-4 py-3 text-sm font-semibold text-white">
+            {statusMessage}
+          </div>
+        )}
         <div className="relative mx-auto h-52 max-w-sm overflow-hidden rounded-[22px] border border-white/15 bg-white/10 shadow-2xl shadow-black/15">
           <Image
             src="https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=760&q=80"
@@ -148,7 +161,7 @@ function Hero() {
         <div className="grid grid-cols-3 gap-2 border-t border-white/15 pt-4">
           {[
             ["6 AM", "Daily Fresh"],
-            ["Local", "Sagwara Delivery"],
+            ["Local", `${area} Delivery`],
             ["100%", "Handpicked"],
           ].map(([value, label]) => (
             <div key={label} className="min-w-0">
@@ -170,13 +183,17 @@ function Hero() {
         </div>
         <div className="space-y-4">
           <h1 className="text-4xl font-bold leading-[1.05] tracking-tight sm:text-6xl">
-            Fresh Fruits & Vegetables Delivered Across Sagwara
+            {settings.business.heroHeading}
           </h1>
           <p className="max-w-xl text-base leading-7 text-emerald-50/90 sm:text-lg">
-            Handpicked every morning. Freshness guaranteed. Delivered with care
-            from your trusted local store.
+            {settings.business.heroSubtitle}
           </p>
         </div>
+        {statusMessage && (
+          <div className="max-w-xl rounded-2xl border border-white/20 bg-white/10 px-4 py-3 text-sm font-semibold text-white">
+            {statusMessage}
+          </div>
+        )}
         <div className="flex flex-wrap gap-3">
           <Link
             href="/products"
@@ -196,7 +213,7 @@ function Hero() {
         <div className="grid max-w-xl gap-3 sm:grid-cols-3">
           {[
             ["6 AM", "Daily sorting"],
-            ["Local", "Sagwara delivery"],
+            ["Local", `${area} delivery`],
             ["100%", "Fresh focused"],
           ].map(([value, label]) => (
             <div key={label} className="border-t border-white/15 pt-3">
@@ -455,7 +472,10 @@ function Newsletter() {
   );
 }
 
-function SocialSection() {
+function SocialSection({ settings }: { settings: PublicSettings }) {
+  const instagramUrl = settings.contact.instagramUrl?.trim();
+  const whatsappChannelUrl = settings.contact.whatsappChannelUrl?.trim();
+
   return (
     <section className="rounded-[24px] border border-emerald-100 bg-white p-6 shadow-sm sm:p-8">
       <div className="grid gap-5 lg:grid-cols-[1fr_auto] lg:items-center">
@@ -467,32 +487,57 @@ function SocialSection() {
             Follow our latest arrivals, seasonal fruits and daily updates.
           </h2>
         </div>
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <a
-            href={instagramUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="group inline-flex items-center justify-center gap-2 rounded-full border border-emerald-100 bg-white px-5 py-3 text-sm font-bold text-zinc-800 shadow-sm transition duration-300 hover:-translate-y-0.5 hover:border-pink-200 hover:bg-pink-50 hover:text-pink-700 hover:shadow-lg hover:shadow-pink-900/10"
-          >
-            <Camera className="h-4 w-4 transition group-hover:scale-110" aria-hidden="true" />
-            Instagram
-          </a>
-          <a
-            href={whatsappChannelUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="group inline-flex items-center justify-center gap-2 rounded-full bg-[#14532d] px-5 py-3 text-sm font-bold text-white shadow-sm transition duration-300 hover:-translate-y-0.5 hover:bg-[#0f3f23] hover:shadow-lg hover:shadow-emerald-900/20"
-          >
-            <MessageCircle className="h-4 w-4 transition group-hover:scale-110" aria-hidden="true" />
-            Join WhatsApp Channel
-          </a>
-        </div>
+        {(instagramUrl || whatsappChannelUrl) && (
+          <div className="flex flex-col gap-3 sm:flex-row">
+            {instagramUrl && (
+              <a
+                href={instagramUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="group inline-flex items-center justify-center gap-2 rounded-full border border-emerald-100 bg-white px-5 py-3 text-sm font-bold text-zinc-800 shadow-sm transition duration-300 hover:-translate-y-0.5 hover:border-pink-200 hover:bg-pink-50 hover:text-pink-700 hover:shadow-lg hover:shadow-pink-900/10"
+              >
+                <Camera className="h-4 w-4 transition group-hover:scale-110" aria-hidden="true" />
+                Instagram
+              </a>
+            )}
+            {whatsappChannelUrl && (
+              <a
+                href={whatsappChannelUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="group inline-flex items-center justify-center gap-2 rounded-full bg-[#14532d] px-5 py-3 text-sm font-bold text-white shadow-sm transition duration-300 hover:-translate-y-0.5 hover:bg-[#0f3f23] hover:shadow-lg hover:shadow-emerald-900/20"
+              >
+                <MessageCircle className="h-4 w-4 transition group-hover:scale-110" aria-hidden="true" />
+                Join WhatsApp Channel
+              </a>
+            )}
+          </div>
+        )}
       </div>
     </section>
   );
 }
 
-function Footer() {
+function Footer({ settings }: { settings: PublicSettings }) {
+  const instagramUrl = settings.contact.instagramUrl?.trim();
+  const whatsappChannelUrl = settings.contact.whatsappChannelUrl?.trim();
+  const instagramHandle = settings.contact.instagramHandle?.trim();
+  const phone = settings.contact.phone?.trim();
+  const supportEmail = settings.contact.supportEmail?.trim();
+  const address = settings.business.address?.trim();
+  const storeName = settings.business.name || "SARVAA Fresh";
+  const city = settings.business.city?.trim();
+  const state = settings.business.state?.trim();
+  const pincode = settings.business.pincode?.trim();
+  const deliveryArea = [city, state, pincode].filter(Boolean).join(", ");
+  const storeStatus = storeStatusMessage(settings);
+  const businessHours = storeStatus ?? formatStoreHours(settings);
+  const contactItems = [
+    phone ? { icon: Phone, label: phone, href: `tel:${phone.replace(/[^\d+]/g, "")}` } : null,
+    supportEmail ? { icon: Mail, label: supportEmail, href: `mailto:${supportEmail}` } : null,
+    address ? { icon: MapPin, label: [address, deliveryArea].filter(Boolean).join(", ") } : null,
+    { icon: Clock, label: businessHours },
+  ].filter((item): item is { icon: typeof Phone; label: string; href?: string } => Boolean(item));
   const quickLinks = [
     { label: "Home", href: "/" },
     { label: "Shop", href: "/products" },
@@ -509,31 +554,37 @@ function Footer() {
       <div className="grid gap-8 p-6 text-center sm:p-8 sm:text-left lg:grid-cols-[1.2fr_0.8fr_0.8fr_0.8fr]">
         <div className="mx-auto max-w-sm sm:mx-0">
           <p className="text-2xl font-black tracking-tight text-[#14532d]">
-            SARVAA Fresh
+            {storeName}
           </p>
           <p className="mt-3 text-sm leading-6 text-zinc-600">
-            Fresh fruits and vegetables delivered across Sagwara.
+            {settings.business.description || "Fresh fruits and vegetables delivered with care."}
           </p>
-          <div className="mt-5 flex flex-wrap justify-center gap-3 sm:justify-start">
-            <a
-              href={instagramUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="group grid h-10 w-10 place-items-center rounded-full border border-emerald-100 bg-emerald-50 text-[#14532d] transition duration-300 hover:-translate-y-0.5 hover:border-pink-200 hover:bg-pink-50 hover:text-pink-700"
-              aria-label="Instagram @sarvaafresh"
-            >
-              <Camera className="h-4 w-4 transition group-hover:scale-110" aria-hidden="true" />
-            </a>
-            <a
-              href={whatsappChannelUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="group grid h-10 w-10 place-items-center rounded-full border border-emerald-100 bg-emerald-50 text-[#14532d] transition duration-300 hover:-translate-y-0.5 hover:bg-[#14532d] hover:text-white"
-              aria-label="Join our WhatsApp Channel"
-            >
-              <MessageCircle className="h-4 w-4 transition group-hover:scale-110" aria-hidden="true" />
-            </a>
-          </div>
+          {(instagramUrl || whatsappChannelUrl) && (
+            <div className="mt-5 flex flex-wrap justify-center gap-3 sm:justify-start">
+              {instagramUrl && (
+                <a
+                  href={instagramUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="group grid h-10 w-10 place-items-center rounded-full border border-emerald-100 bg-emerald-50 text-[#14532d] transition duration-300 hover:-translate-y-0.5 hover:border-pink-200 hover:bg-pink-50 hover:text-pink-700"
+                  aria-label={instagramHandle ? `Instagram ${instagramHandle}` : "Instagram"}
+                >
+                  <Camera className="h-4 w-4 transition group-hover:scale-110" aria-hidden="true" />
+                </a>
+              )}
+              {whatsappChannelUrl && (
+                <a
+                  href={whatsappChannelUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="group grid h-10 w-10 place-items-center rounded-full border border-emerald-100 bg-emerald-50 text-[#14532d] transition duration-300 hover:-translate-y-0.5 hover:bg-[#14532d] hover:text-white"
+                  aria-label="Join our WhatsApp Channel"
+                >
+                  <MessageCircle className="h-4 w-4 transition group-hover:scale-110" aria-hidden="true" />
+                </a>
+              )}
+            </div>
+          )}
         </div>
 
         <div>
@@ -550,66 +601,83 @@ function Footer() {
         <div>
           <h3 className="text-sm font-black text-zinc-950">Support</h3>
           <div className="mt-4 flex flex-col items-center gap-3 sm:items-start">
-            <a
-              href={whatsappChannelUrl}
-              target="_blank"
-              rel="noreferrer"
-              className={footerLinkClass}
-            >
-              WhatsApp Channel
-              <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
-            </a>
-            <a
-              href={instagramUrl}
-              target="_blank"
-              rel="noreferrer"
-              className={footerLinkClass}
-            >
-              Instagram
-              <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
-            </a>
-          </div>
-        </div>
-
-        <div className="grid gap-6">
-          <div>
-            <h3 className="text-sm font-black text-zinc-950">Delivery Area</h3>
-            <p className="mt-4 text-sm font-semibold text-zinc-600">Sagwara</p>
-            <p className="mt-1 text-sm text-zinc-500">Rajasthan</p>
-          </div>
-          <div>
-            <h3 className="text-sm font-black text-zinc-950">Business Hours</h3>
-            <p className="mt-4 text-sm font-semibold text-zinc-600">Every Day</p>
-            <p className="mt-1 text-sm text-zinc-500">6:00 AM - 9:00 PM</p>
-          </div>
-          <div>
-            <h3 className="text-sm font-black text-zinc-950">Contact</h3>
-            <div className="mt-4 flex flex-col items-center gap-3 sm:items-start">
-              <a
-                href={instagramUrl}
-                target="_blank"
-                rel="noreferrer"
-                className={footerLinkClass}
-              >
-                @sarvaafresh
-                <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
-              </a>
+            {whatsappChannelUrl && (
               <a
                 href={whatsappChannelUrl}
                 target="_blank"
                 rel="noreferrer"
                 className={footerLinkClass}
               >
-                Join our WhatsApp Channel
+                WhatsApp Channel
                 <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
               </a>
+            )}
+            {instagramUrl && (
+              <a
+                href={instagramUrl}
+                target="_blank"
+                rel="noreferrer"
+                className={footerLinkClass}
+              >
+                Instagram
+                <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+              </a>
+            )}
+          </div>
+        </div>
+
+        <div className="grid gap-6">
+          <div>
+            <h3 className="text-sm font-black text-zinc-950">Delivery Area</h3>
+            {deliveryArea && <p className="mt-4 text-sm font-semibold text-zinc-600">{deliveryArea}</p>}
+          </div>
+          <div>
+            <h3 className="text-sm font-black text-zinc-950">Business Hours</h3>
+            <p className="mt-4 text-sm font-semibold text-zinc-600">Every Day</p>
+            <p className="mt-1 text-sm text-zinc-500">{businessHours}</p>
+          </div>
+          <div>
+            <h3 className="text-sm font-black text-zinc-950">Contact Us</h3>
+            <div className="mt-4 flex flex-col items-center gap-3 sm:items-start">
+              {contactItems.map((item) => {
+                const Icon = item.icon;
+                const content = (
+                  <>
+                    <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                    <span>{item.label}</span>
+                  </>
+                );
+                return item.href ? (
+                  <a key={item.label} href={item.href} className={footerLinkClass}>
+                    {content}
+                  </a>
+                ) : (
+                  <p key={item.label} className="inline-flex items-start gap-1.5 text-sm font-semibold text-zinc-600">
+                    {content}
+                  </p>
+                );
+              })}
+              {instagramUrl && (
+                <a href={instagramUrl} target="_blank" rel="noreferrer" className={footerLinkClass}>
+                  <Camera className="h-3.5 w-3.5" aria-hidden="true" />
+                  {instagramHandle || "Instagram"}
+                  <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                </a>
+              )}
+              {whatsappChannelUrl && (
+                <a href={whatsappChannelUrl} target="_blank" rel="noreferrer" className={footerLinkClass}>
+                  <MessageCircle className="h-3.5 w-3.5" aria-hidden="true" />
+                  Join our WhatsApp Channel
+                  <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                </a>
+              )}
             </div>
           </div>
         </div>
       </div>
       <div className="flex flex-col gap-2 border-t border-emerald-100 px-6 py-4 text-sm font-semibold text-zinc-500 sm:flex-row sm:items-center sm:justify-between sm:px-8">
-        <p>© 2026 SARVAA Fresh</p>
-        <p>Built with ❤️ in Sagwara</p>
+        <p>© 2026 {storeName}</p>
+        <p>Built with ♥{city ? ` in ${city}` : ""}</p>
       </div>
     </footer>
   );
@@ -642,6 +710,9 @@ function ErrorState({
 export default function HomePage() {
   const [products, setProducts] = useState<ProductListResponse | null>(null);
   const [categories, setCategories] = useState<CategoryListResponse | null>(null);
+  const [settings, setSettings] = useState<PublicSettings>(() =>
+    normalizeSettings(null),
+  );
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -667,17 +738,19 @@ export default function HomePage() {
       setIsLoading(true);
       setErrorMessage(null);
       try {
-        const [productData, categoryData] = await Promise.all([
+        const [productData, categoryData, settingsData] = await Promise.all([
           get<ProductListResponse>(
             "/products?limit=8&page=1&isActive=true&sortBy=updatedAt&sortOrder=desc",
           ),
           get<CategoryListResponse>(
             "/categories?limit=8&page=1&isActive=true",
           ),
+          get<PublicSettings>("/settings/public", { skipAuth: true }),
         ]);
         if (cancelled) return;
         setProducts(productData);
         setCategories(categoryData);
+        setSettings(normalizeSettings(settingsData));
       } catch (error) {
         if (cancelled) return;
         const message =
@@ -702,7 +775,7 @@ export default function HomePage() {
 
   return (
     <div className="space-y-12 pb-8">
-      <Hero />
+      <Hero settings={settings} />
       {isLoading ? (
         <div className="flex items-center justify-center py-10">
           <Spinner />
@@ -727,8 +800,9 @@ export default function HomePage() {
       <PromoBanner />
       <WhyChooseUs />
       <Newsletter />
-      <SocialSection />
-      <Footer />
+      <SocialSection settings={settings} />
+      <Footer settings={settings} />
     </div>
   );
 }
+

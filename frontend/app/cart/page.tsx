@@ -1,9 +1,17 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 
+import { get } from "@/lib/api/client";
+import type { PublicSettings } from "@/lib/api/types";
 import { useCart } from "@/lib/cart/CartProvider";
 import { useCustomerAuth } from "@/lib/customer-auth/CustomerAuthProvider";
+import {
+  calculateDeliveryPolicy,
+  normalizeSettings,
+  storeStatusMessage,
+} from "@/lib/settings/settings";
 
 function formatMoney(value: string | number): string {
   const numeric = typeof value === "number" ? value : Number.parseFloat(value);
@@ -60,6 +68,32 @@ export default function CartPage() {
   const { lines, subtotal, itemCount, setQuantity, removeLine, clearCart } =
     useCart();
   const { isAuthenticated } = useCustomerAuth();
+  const [settings, setSettings] = useState<PublicSettings>(() =>
+    normalizeSettings(null),
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadSettings() {
+      try {
+        const data = await get<PublicSettings>("/settings/public", {
+          skipAuth: true,
+        });
+        if (!cancelled) setSettings(normalizeSettings(data));
+      } catch {
+        if (!cancelled) setSettings(normalizeSettings(null));
+      }
+    }
+    void loadSettings();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const policy = calculateDeliveryPolicy(subtotal, settings);
+  const statusMessage = storeStatusMessage(settings);
+  const total = subtotal + policy.deliveryCharge;
+  const checkoutDisabled = policy.checkoutDisabled || lines.length === 0;
 
   return (
     <div className="space-y-6 pb-6">
@@ -177,6 +211,20 @@ export default function CartPage() {
                 <span className="text-zinc-600">Subtotal</span>
                 <span className="font-medium text-zinc-950">{formatMoney(subtotal)}</span>
               </div>
+              <div className="flex items-center justify-between">
+                <span className="text-zinc-600">Delivery</span>
+                <span className="font-medium text-zinc-950">
+                  {policy.deliveryCharge > 0 ? formatMoney(policy.deliveryCharge) : "FREE"}
+                </span>
+              </div>
+              <div className="flex items-center justify-between border-t border-zinc-200 pt-2">
+                <span className="font-semibold text-zinc-700">Total</span>
+                <span className="font-bold text-zinc-950">{formatMoney(total)}</span>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
+              {statusMessage ?? policy.message}
             </div>
 
             <button
@@ -187,12 +235,22 @@ export default function CartPage() {
               Clear cart
             </button>
 
-            <Link
-              href={isAuthenticated ? "/checkout" : "/auth?next=/checkout"}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-emerald-700 px-4 py-3 text-sm font-semibold text-white hover:bg-emerald-800"
-            >
-              Proceed to checkout
-            </Link>
+            {checkoutDisabled ? (
+              <button
+                type="button"
+                disabled
+                className="inline-flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-full bg-zinc-300 px-4 py-3 text-sm font-semibold text-white"
+              >
+                Checkout unavailable
+              </button>
+            ) : (
+              <Link
+                href={isAuthenticated ? "/checkout" : "/auth?next=/checkout"}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-emerald-700 px-4 py-3 text-sm font-semibold text-white hover:bg-emerald-800"
+              >
+                Proceed to checkout
+              </Link>
+            )}
           </aside>
         </div>
       )}

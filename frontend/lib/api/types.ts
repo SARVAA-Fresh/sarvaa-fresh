@@ -370,6 +370,10 @@ export interface Payment {
   deletedAt: string | null;
   paymentUrl?: string | null;
   qrCodeData?: string | null;
+  merchantName?: string | null;
+  upiId?: string | null;
+  qrImageUrl?: string | null;
+  paymentInstructions?: string | null;
   statusMessage?: string;
 }
 
@@ -528,4 +532,114 @@ export interface CustomerOrderListResponse {
 
 export interface PaymentProofRequest {
   proof: File;
+}
+
+export type SettingType = "STRING" | "NUMBER" | "BOOLEAN" | "JSON";
+export type SettingCategory =
+  | "BUSINESS"
+  | "DELIVERY"
+  | "PAYMENT"
+  | "CONTACT"
+  | "SYSTEM"
+  | "STORE";
+
+export interface Setting {
+  id: string;
+  key: string;
+  value: string;
+  type: SettingType;
+  category: SettingCategory;
+  description: string | null;
+  isEditable: boolean;
+  isPublic: boolean;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+}
+
+export interface SettingListResponse {
+  items: Setting[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface PublicSettings {
+  business: {
+    name?: string;
+    tagline?: string;
+    heroHeading?: string;
+    heroSubtitle?: string;
+    logoUrl?: string;
+    faviconUrl?: string;
+    address?: string;
+    city?: string;
+    state?: string;
+    country?: string;
+    pincode?: string;
+    gstNumber?: string;
+    description?: string;
+  };
+  contact: {
+    phone?: string;
+    whatsapp?: string;
+    whatsappChannelUrl?: string;
+    instagramUrl?: string;
+    instagramHandle?: string;
+    deliveryAreaDescription?: string;
+    supportEmail?: string;
+    customerCareHours?: string;
+  };
+  delivery: {
+    fee?: number;
+    freeDeliveryThreshold?: number;
+    minimumOrderValue?: number;
+    maximumRadius?: number;
+    estimatedTime?: string;
+    sameDayEnabled?: boolean;
+  };
+  payment: {
+    upiId?: string;
+    upiDisplayName?: string;
+    qrImageUrl?: string;
+    bankName?: string;
+    accountHolderName?: string;
+    branch?: string;
+    ifsc?: string;
+    codEnabled?: boolean;
+    upiEnabled?: boolean;
+    futureGatewayEnabled?: boolean;
+    instructions?: string;
+    availableMethods: PaymentMethod[];
+  };
+  store: {
+    openTime?: string;
+    closeTime?: string;
+    acceptOrders?: boolean;
+    storeClosed?: boolean;
+    holidayMode?: boolean;
+    maintenanceMode?: boolean;
+    maintenanceMessage?: string;
+  };
+  branding?: {
+    themeColor?: string;
+    accentColor?: string;
+  };
+  system?: {
+    storeVersion?: string;
+    environment?: string;
+  };
+}
+
+export interface DeliveryPolicy {
+  minimumOrderValue: number;
+  deliveryFee: number;
+  freeDeliveryThreshold: number;
+  deliveryEnabled: boolean;
+  deliveryCharge: number;
+  checkoutDisabled: boolean;
+  amountToMinimum: number;
+  amountToFreeDelivery: number;
+  message: string;
 }
