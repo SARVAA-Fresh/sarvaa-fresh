@@ -6,6 +6,10 @@ import { ArrowRight, Eye, Heart, ImageIcon, Plus, Sparkles } from "lucide-react"
 
 import { buildAssetUrl } from "@/lib/api/client";
 import type { Product, ProductImage, ProductVariant } from "@/lib/api/types";
+import {
+  getCustomerStockStatus,
+  getVariantPricing,
+} from "@/lib/storefront/product-display";
 
 function formatMoney(value: string | number | null | undefined): string {
   const numeric = typeof value === "number" ? value : Number.parseFloat(value ?? "0");
@@ -30,17 +34,18 @@ function firstVariant(product: Product): ProductVariant | null {
   );
 }
 
-function hasDiscount(variant: ProductVariant | null): boolean {
-  if (!variant?.mrp) return false;
-  return Number.parseFloat(variant.mrp) > Number.parseFloat(variant.price);
-}
-
 export function ProductCard({ product }: { product: Product }) {
   const image = primaryImage(product);
   const variant = firstVariant(product);
   const src = buildAssetUrl(image?.imageUrl ?? product.imageUrl);
-  const isAvailable = product.isActive && Boolean(variant?.isActive ?? variant);
-  const showDiscount = hasDiscount(variant);
+  const stockStatus = getCustomerStockStatus(product.isActive ? variant : null);
+  const pricing = getVariantPricing(variant);
+  const stockBadgeClass =
+    stockStatus.tone === "success"
+      ? "bg-emerald-50 text-[#14532d]"
+      : stockStatus.tone === "warning"
+        ? "bg-amber-50 text-amber-800"
+        : "bg-zinc-100 text-zinc-500";
 
   return (
     <article className="group overflow-hidden rounded-[20px] border border-emerald-100 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:border-emerald-200 hover:shadow-2xl hover:shadow-emerald-900/10">
@@ -87,14 +92,8 @@ export function ProductCard({ product }: { product: Product }) {
                 {product.name}
               </h3>
             </Link>
-            <span
-              className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold ${
-                isAvailable
-                  ? "bg-emerald-50 text-[#14532d]"
-                  : "bg-zinc-100 text-zinc-500"
-              }`}
-            >
-              {isAvailable ? "In stock" : "Sold out"}
+            <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold ${stockBadgeClass}`}>
+              {stockStatus.label}
             </span>
           </div>
           <p className="mt-1 text-xs font-semibold uppercase tracking-[0.14em] text-[#4CAF50]">
@@ -111,14 +110,19 @@ export function ProductCard({ product }: { product: Product }) {
           <div>
             <div className="flex items-baseline gap-2">
               <p className="text-lg font-black text-zinc-950 sm:text-xl">
-                {variant ? formatMoney(variant.price) : "Rs. 0.00"}
+                {formatMoney(pricing.price)}
               </p>
-              {showDiscount && (
+              {pricing.hasDiscount && (
                 <p className="text-sm font-semibold text-zinc-400 line-through">
-                  {formatMoney(variant?.mrp)}
+                  {formatMoney(pricing.mrp)}
                 </p>
               )}
             </div>
+            {pricing.hasDiscount && (
+              <p className="text-xs font-bold text-emerald-700">
+                {pricing.discountPercentage}% off
+              </p>
+            )}
             <p className="text-xs font-medium text-zinc-500">
               {variant
                 ? `${variant.variantName} / ${variant.unit}`
@@ -128,9 +132,10 @@ export function ProductCard({ product }: { product: Product }) {
           <Link
             href={`/products/${product.id}`}
             aria-label={`Add ${product.name} to cart`}
-            className="grid h-12 w-12 place-items-center rounded-full bg-[#14532d] text-white shadow-lg shadow-emerald-900/20 transition hover:-translate-y-0.5 hover:bg-[#0f3f23] sm:h-11 sm:w-11"
+            className="inline-flex h-12 items-center justify-center gap-1.5 rounded-full bg-[#14532d] px-3 text-xs font-bold text-white shadow-lg shadow-emerald-900/20 transition hover:-translate-y-0.5 hover:bg-[#0f3f23] sm:h-11"
           >
             <Plus className="h-5 w-5" aria-hidden="true" />
+            Add to Cart
           </Link>
         </div>
 

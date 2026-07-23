@@ -168,6 +168,18 @@ export interface ProductVariant {
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
+  // Inventory fields returned with variants for product detail
+  availableStock?: number;
+  reservedStock?: number;
+  lowStockThreshold?: number;
+  isInStock?: boolean;
+  // Backwards-compatible: if the backend returns an `inventory` relation object
+  inventory?: {
+    availableStock: number;
+    reservedStock: number;
+    lowStockThreshold: number;
+    isInStock: boolean;
+  } | null;
 }
 
 export interface Product {
@@ -444,6 +456,7 @@ export interface CartVariantRef {
   mrp: string | null;
   isDefault: boolean;
   isActive: boolean;
+  availableStock?: number;
   product: CartProductRef;
 }
 

@@ -62,6 +62,7 @@ export class ProductsService {
             where: { deletedAt: null },
             take: 1,
             orderBy: { isDefault: 'desc' },
+            include: { inventory: true },
           },
           images: {
             where: { deletedAt: null },
@@ -105,6 +106,7 @@ export class ProductsService {
         variants: {
           where: { deletedAt: null },
           orderBy: { isDefault: 'desc' },
+          include: { inventory: true },
         },
         images: {
           where: { deletedAt: null },
@@ -140,6 +142,7 @@ export class ProductsService {
         variants: {
           where: { deletedAt: null },
           orderBy: { isDefault: 'desc' },
+          include: { inventory: true },
         },
         images: {
           where: { deletedAt: null },

@@ -19,6 +19,7 @@ import type {
   ProductVariant,
 } from "@/lib/api/types";
 import { useCustomerAuth } from "@/lib/customer-auth/CustomerAuthProvider";
+import { getVariantInventory } from "@/lib/storefront/product-display";
 
 const CART_STORAGE_KEY = "sarvaa-storefront-cart";
 type CartStoreListener = () => void;
@@ -97,6 +98,19 @@ function setCartStore(next: CartLine[] | ((current: CartLine[]) => CartLine[])):
   emitCartStoreChange();
 }
 
+function clampQuantity(
+  quantity: number,
+  availableStock?: number,
+  allowZero = false,
+): number {
+  const validQuantity = Number.isFinite(quantity) ? Math.floor(quantity) : 1;
+  const minimumQuantity = Math.max(allowZero ? 0 : 1, validQuantity);
+  if (allowZero && minimumQuantity === 0) return 0;
+  return typeof availableStock === "number"
+    ? Math.min(minimumQuantity, Math.max(1, availableStock))
+    : minimumQuantity;
+}
+
 function loadCartFromStorageIntoStore(): void {
   if (typeof window === "undefined") {
     return;
@@ -126,23 +140,30 @@ export function CartProvider({ children }: { children: ReactNode }) {
     (product: Product, variant: ProductVariant, quantity = 1) => {
       setCartStore((current) => {
         const existing = current.find((line) => line.variant.id === variant.id);
+        const availableStock = getVariantInventory(variant)?.availableStock;
         if (existing) {
+          const nextQuantity = clampQuantity(
+            existing.quantity + quantity,
+            availableStock ?? existing.variant.availableStock,
+          );
           return current.map((line) =>
             line.variant.id === variant.id
               ? {
                   ...line,
-                  quantity: line.quantity + quantity,
+                  quantity: nextQuantity,
                   variant: {
                     ...line.variant,
                     price: variant.price,
                     mrp: variant.mrp,
                     isActive: variant.isActive,
                     isDefault: variant.isDefault,
+                    availableStock,
                   },
                 }
             : line,
           );
         }
+        const nextQuantity = clampQuantity(quantity, availableStock);
         const cartVariant: CartVariantRef = {
           id: variant.id,
           productId: variant.productId,
@@ -154,6 +175,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
           mrp: variant.mrp,
           isDefault: variant.isDefault,
           isActive: variant.isActive,
+          availableStock,
           product: {
             id: product.id,
             name: product.name,
@@ -174,7 +196,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
               category: product.category,
             },
             variant: cartVariant,
-            quantity,
+            quantity: nextQuantity,
           },
         ];
       });
@@ -186,7 +208,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setCartStore((current) =>
       current
         .map((line) =>
-          line.variant.id === variantId ? { ...line, quantity } : line,
+          line.variant.id === variantId
+            ? {
+                ...line,
+                quantity: clampQuantity(quantity, line.variant.availableStock, true),
+              }
+            : line,
         )
         .filter((line) => line.quantity > 0),
     );

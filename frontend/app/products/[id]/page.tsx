@@ -9,6 +9,11 @@ import { ApiError } from "@/lib/api/types";
 import { buildAssetUrl, get } from "@/lib/api/client";
 import type { Product, ProductImage } from "@/lib/api/types";
 import { useCart } from "@/lib/cart/CartProvider";
+import {
+  getCustomerStockStatus,
+  getVariantInventory,
+  getVariantPricing,
+} from "@/lib/storefront/product-display";
 
 function formatMoney(value: string | number | null | undefined): string {
   const numeric = typeof value === "number" ? value : Number.parseFloat(value ?? "0");
@@ -135,6 +140,19 @@ export default function ProductDetailPage() {
     [product, selectedVariantId],
   );
 
+  const selectedInventory = useMemo(
+    () => getVariantInventory(selectedVariant),
+    [selectedVariant],
+  );
+  const availableStock = selectedInventory?.availableStock;
+  const selectedStockStatus = getCustomerStockStatus(selectedVariant);
+  const isOutOfStock = selectedStockStatus.isOutOfStock;
+
+  useEffect(() => {
+    if (typeof availableStock !== "number") return;
+    setQuantity((current) => Math.min(Math.max(1, current), Math.max(1, availableStock)));
+  }, [availableStock]);
+
   const gallery = product?.images ?? [];
   const heroImage = useMemo(() => {
     if (!product) return null;
@@ -169,7 +187,7 @@ export default function ProductDetailPage() {
     );
   }
 
-  const canAdd = Boolean(selectedVariant && selectedVariant.isActive);
+  const canAdd = Boolean(selectedVariant && selectedVariant.isActive && !isOutOfStock);
 
   return (
     <div className="space-y-6 pb-6">
@@ -254,15 +272,6 @@ export default function ProductDetailPage() {
                 <Icon name="tag" className="h-3.5 w-3.5" />
                 {product.category.name}
               </span>
-              <span
-                className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${
-                  product.isActive
-                    ? "bg-emerald-50 text-emerald-800"
-                    : "bg-zinc-100 text-zinc-600"
-                }`}
-              >
-                {product.isActive ? "Available" : "Unavailable"}
-              </span>
             </div>
             <div>
               <h1 className="text-2xl font-bold tracking-tight text-zinc-950 sm:text-3xl">
@@ -281,6 +290,17 @@ export default function ProductDetailPage() {
             </p>
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               {product.variants.map((variant) => (
+                (() => {
+                  const pricing = getVariantPricing(variant);
+                  const stockStatus = getCustomerStockStatus(variant);
+                  const stockClass =
+                    stockStatus.tone === "success"
+                      ? "bg-emerald-50 text-emerald-800"
+                      : stockStatus.tone === "warning"
+                        ? "bg-amber-50 text-amber-800"
+                        : "bg-red-50 text-red-700";
+
+                  return (
                 <button
                   key={variant.id}
                   type="button"
@@ -307,20 +327,28 @@ export default function ProductDetailPage() {
                     )}
                   </div>
                   <div className="mt-3 flex items-end justify-between gap-3">
-                    <p className="text-lg font-bold text-zinc-950">
-                      {formatMoney(variant.price)}
-                    </p>
-                    <span
-                      className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${
-                        variant.isActive
-                          ? "bg-emerald-50 text-emerald-800"
-                          : "bg-zinc-100 text-zinc-600"
-                      }`}
-                    >
-                      {variant.isActive ? "Active" : "Inactive"}
-                    </span>
+                    <div className="flex flex-col">
+                      <div className="flex items-baseline gap-3">
+                        <p className="text-lg font-bold text-zinc-950">
+                          {formatMoney(pricing.price)}
+                        </p>
+                        {pricing.hasDiscount && (
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm text-zinc-500 line-through">{formatMoney(pricing.mrp)}</p>
+                            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800">
+                              {pricing.discountPercentage}% off
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      <span className={`mt-2 inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${stockClass}`}>
+                        {stockStatus.label}
+                      </span>
+                    </div>
                   </div>
                 </button>
+                  );
+                })()
               ))}
             </div>
           </div>
@@ -337,10 +365,16 @@ export default function ProductDetailPage() {
                 id="quantity"
                 type="number"
                 min={1}
+                max={availableStock ?? undefined}
                 value={quantity}
-                onChange={(event) =>
-                  setQuantity(Math.max(1, Number.parseInt(event.target.value || "1", 10)))
-                }
+                onChange={(event) => {
+                  const raw = Number.parseInt(event.target.value || "1", 10) || 1;
+                  let next = Math.max(1, raw);
+                  if (typeof availableStock === 'number') {
+                    next = Math.min(next, Math.max(1, availableStock));
+                  }
+                  setQuantity(next);
+                }}
                 className="block w-full rounded-2xl border border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-900 outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20"
               />
             </div>
@@ -349,7 +383,13 @@ export default function ProductDetailPage() {
               disabled={!canAdd}
               onClick={() => {
                 if (!product || !selectedVariant || !selectedVariant.isActive) return;
-                addLine(product, selectedVariant, quantity);
+                if (isOutOfStock) {
+                  setErrorMessage("Selected variant is out of stock.");
+                  return;
+                }
+                const qty = typeof availableStock === "number" ? Math.min(quantity, Math.max(1, availableStock)) : quantity;
+                addLine(product, selectedVariant, qty);
+                setQuantity(qty);
                 setSuccessMessage("Added to cart.");
               }}
               className="inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-700 px-4 py-3 text-sm font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-zinc-300"
@@ -360,17 +400,45 @@ export default function ProductDetailPage() {
           </div>
 
           {selectedVariant && (
+            (() => {
+              const pricing = getVariantPricing(selectedVariant);
+
+              return (
             <div className="rounded-2xl border border-zinc-200 bg-white p-4">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">
                 Price summary
               </p>
-              <div className="mt-3 flex items-center justify-between">
-                <span className="text-sm text-zinc-600">Total</span>
-                <span className="text-xl font-bold text-zinc-950">
-                  {formatMoney(Number.parseFloat(selectedVariant.price) * quantity)}
-                </span>
+              <div className="mt-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-zinc-600">Unit price</span>
+                  <span className="text-sm font-medium text-zinc-950">{formatMoney(pricing.price)}</span>
+                </div>
+                {pricing.hasDiscount && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-zinc-600">MRP</span>
+                    <span className="text-sm text-zinc-500 line-through">{formatMoney(pricing.mrp)}</span>
+                  </div>
+                )}
+                {pricing.hasDiscount && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-zinc-600">Discount</span>
+                    <span className="text-sm font-medium text-emerald-700">{pricing.discountPercentage}% off</span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-zinc-600">Quantity</span>
+                  <span className="text-sm font-medium text-zinc-950">{quantity}</span>
+                </div>
+                <div className="mt-2 flex items-center justify-between">
+                  <span className="text-sm text-zinc-600">Total</span>
+                  <span className="text-xl font-bold text-zinc-950">
+                    {formatMoney(pricing.price * quantity)}
+                  </span>
+                </div>
               </div>
             </div>
+              );
+            })()
           )}
         </div>
       </section>
