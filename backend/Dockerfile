@@ -9,7 +9,7 @@ WORKDIR /app
 
 # Install dependencies
 COPY package*.json ./
-RUN npm ci --only=production=false
+RUN npm ci
 
 # Copy prisma schema
 COPY prisma ./prisma
@@ -27,6 +27,10 @@ FROM node:20-alpine AS production
 
 WORKDIR /app
 
+RUN apk add --no-cache \
+    openssl \
+    libc6-compat
+
 # Create non-root user for security
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nestjs -u 1001 -G nodejs
@@ -36,6 +40,8 @@ COPY --from=builder --chown=nestjs:nodejs /app/dist ./dist
 COPY --from=builder --chown=nestjs:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=nestjs:nodejs /app/prisma ./prisma
 COPY --from=builder --chown=nestjs:nodejs /app/package.json ./package.json
+
+RUN mkdir -p /app/uploads && chown -R nestjs:nodejs /app/uploads
 
 # Set environment
 ENV NODE_ENV=production
@@ -49,7 +55,7 @@ EXPOSE 3001
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:3001/api/v1/health/live || exit 1
+    CMD wget --no-verbose --tries=1 --spider http://localhost:3001/api/v1/health/ready || exit 1
 
-# Start application
-CMD ["node", "dist/main"]
+# Start application: run migrations, run TypeScript seed with ts-node ESM loader, then start app
+CMD ["sh", "-c", "npx prisma migrate deploy && node prisma/seed.js && node dist/src/main.js"]

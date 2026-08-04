@@ -1,5 +1,16 @@
 import { PrismaClient, Prisma } from '@prisma/client';
-import * as bcrypt from 'bcryptjs';
+import bcrypt from 'bcryptjs';
+
+// ts-node ESM interop can yield different shapes for imported CommonJS modules.
+// Resolve a reliable `hash` function reference for both CJS and ESM interop.
+const _bcryptAny: any = bcrypt as any;
+const hashFn: (s: string, saltOrRounds: number) => Promise<string> =
+  _bcryptAny.hash ?? _bcryptAny.default?.hash ?? (async (s: string, r: number) => {
+    // Fallback: try sync hash in case only sync API is available
+    const syncHash = _bcryptAny.hashSync ?? _bcryptAny.default?.hashSync;
+    if (syncHash) return Promise.resolve(syncHash(s, r));
+    throw new Error('bcrypt.hash function not available');
+  });
 
 const prisma = new PrismaClient();
 
@@ -32,16 +43,6 @@ const CATEGORY_SEEDS: CategorySeed[] = [
     name: 'Fruits',
     slug: 'fruits',
     description: 'Hand-picked seasonal fruits sourced from trusted farms.',
-  },
-  {
-    name: 'Dairy',
-    slug: 'dairy',
-    description: 'Fresh dairy essentials straight from local dairies.',
-  },
-  {
-    name: 'Grocery',
-    slug: 'grocery',
-    description: 'Daily grocery staples for your kitchen.',
   },
 ];
 
@@ -90,55 +91,11 @@ const PRODUCT_SEEDS_BY_CATEGORY: Record<string, ProductSeed[]> = {
       mrp: 220,
     },
   ],
-  dairy: [
-    {
-      name: 'Full Cream Milk',
-      slug: 'full-cream-milk',
-      sku: 'SARVAA-DAI-MILK-500ML',
-      variantName: '500 ml',
-      unit: 'L',
-      weight: 0.5,
-      price: 32,
-      mrp: 35,
-    },
-    {
-      name: 'Fresh Curd',
-      slug: 'fresh-curd',
-      sku: 'SARVAA-DAI-CURD-500G',
-      variantName: '500 g',
-      unit: 'kg',
-      weight: 0.5,
-      price: 40,
-      mrp: 45,
-    },
-  ],
-  grocery: [
-    {
-      name: 'Basmati Rice',
-      slug: 'basmati-rice',
-      sku: 'SARVAA-GRO-RICE-1KG',
-      variantName: '1 kg',
-      unit: 'kg',
-      weight: 1,
-      price: 120,
-      mrp: 140,
-    },
-    {
-      name: 'Sunflower Oil',
-      slug: 'sunflower-oil',
-      sku: 'SARVAA-GRO-OIL-1L',
-      variantName: '1 L',
-      unit: 'L',
-      weight: 1,
-      price: 150,
-      mrp: 175,
-    },
-  ],
 };
 
 async function seedSuperAdmin(): Promise<void> {
   const email = 'sarvaafresh@gmail.com';
-  const passwordHash = await bcrypt.hash('Admin@123', SALT_ROUNDS);
+  const passwordHash = await hashFn('Admin@123', SALT_ROUNDS);
 
   const admin = await prisma.admin.upsert({
     where: { email },
@@ -179,7 +136,7 @@ async function seedDemoCustomer(): Promise<void> {
     return;
   }
 
-  const passwordHash = await bcrypt.hash('Customer@123', SALT_ROUNDS);
+  const passwordHash = await hashFn('Customer@123', SALT_ROUNDS);
 
   const customer = await prisma.user.create({
     data: {
