@@ -38,15 +38,16 @@ export class AdminAuthService {
       type: 'admin',
     };
 
-    const secret =
-    this.configService.get<string>('ADMIN_JWT_SECRET') ??
-    this.configService.get<string>('JWT_SECRET') ??
-    'change-me';
-  
-  const expiresIn =
-    this.configService.get<string>('ADMIN_JWT_EXPIRES_IN') ??
-    this.configService.get<string>('JWT_EXPIRES_IN') ??
-    '7d';
+    const secret = this.configService.get<string>('ADMIN_JWT_SECRET');
+
+    if (!secret) {
+      throw new Error('ADMIN_JWT_SECRET is not configured');
+    }
+
+    const expiresIn =
+      this.configService.get<string>('ADMIN_JWT_EXPIRES_IN') ??
+      this.configService.get<string>('JWT_EXPIRES_IN') ??
+      '7d';
 
     const accessToken = this.jwtService.sign(payload, { secret, expiresIn });
 

@@ -4,23 +4,51 @@ import { ConfigService } from '@nestjs/config';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
+import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
-import { Request, Response, NextFunction } from 'express';
+
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
-  app.use((req: Request, res: Response, next: NextFunction) => {
-  next();
-});
+
 
   const configService = app.get(ConfigService);
   const port = configService.get<number>('PORT', 3001);
   const apiPrefix = configService.get<string>('API_PREFIX', '/api/v1');
+  const nodeEnv = configService.get<string>('NODE_ENV', 'development');
+  const corsOrigins = (configService.get<string>('CORS_ALLOWED_ORIGINS', '') || '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+  const defaultOrigins = (nodeEnv === 'production'
+    ? [configService.get<string>('FRONTEND_URL'), configService.get<string>('NEXT_PUBLIC_APP_URL')]
+    : [
+        'http://localhost:3000',
+        'http://127.0.0.1:3000',
+        'http://localhost:3001',
+        'http://127.0.0.1:3001',
+        configService.get<string>('FRONTEND_URL'),
+        configService.get<string>('NEXT_PUBLIC_APP_URL'),
+      ])
+    .filter((origin): origin is string => Boolean(origin));
+  const allowedOrigins = [...new Set([...defaultOrigins, ...corsOrigins])];
 
   app.setGlobalPrefix(apiPrefix);
+  app.use(
+    helmet({
+      xPoweredBy: false,
+      hsts: {
+        maxAge: 31536000,
+        includeSubDomains: true,
+        preload: true,
+      },
+      frameguard: { action: 'sameorigin' },
+      contentSecurityPolicy: false,
+    }),
+  );
 
   app.useGlobalPipes(
     new ValidationPipe({
@@ -38,8 +66,17 @@ async function bootstrap() {
   app.useGlobalInterceptors(new TransformInterceptor());
 
   app.enableCors({
-    origin: true,
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error('Not allowed by CORS'));
+    },
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'x-api-key'],
   });
 
   const swaggerConfig = new DocumentBuilder()

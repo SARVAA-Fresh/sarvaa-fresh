@@ -9,6 +9,15 @@ import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { PrismaService } from '../prisma/prisma.service';
 import { Public } from '@/common/decorators/public.decorator';
 
+export function getHealthCheckPath(nodeEnv: string | undefined, cwd: string) {
+  if (nodeEnv === 'production') {
+    const distPath = `${cwd}/dist`;
+    return distPath;
+  }
+
+  return cwd;
+}
+
 @Public()
 @ApiTags('Health')
 @Controller('health')
@@ -45,7 +54,7 @@ export class HealthController {
       () =>
         this.disk.checkStorage('disk', {
           thresholdPercent: 0.9,
-          path: process.env.NODE_ENV === 'production' ? '/app/dist' : process.cwd(),
+          path: getHealthCheckPath(process.env.NODE_ENV, process.cwd()),
         }),
     ]);
   }

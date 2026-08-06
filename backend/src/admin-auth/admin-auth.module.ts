@@ -11,18 +11,23 @@ import { AdminJwtStrategy } from './strategies/admin-jwt.strategy';
     PassportModule.register({ defaultStrategy: 'admin-jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => ({
-        secret:
-  configService.get<string>('ADMIN_JWT_SECRET') ??
-  configService.get<string>('JWT_SECRET') ??
-  'change-me',
-        signOptions: {
-          expiresIn:
-          configService.get<string>('ADMIN_JWT_EXPIRES_IN') ??
-          configService.get<string>('JWT_EXPIRES_IN') ??
-          '7d',
-        },
-      }),
+      useFactory: async (configService: ConfigService) => {
+        const adminJwtSecret = configService.get<string>('ADMIN_JWT_SECRET');
+
+        if (!adminJwtSecret) {
+          throw new Error('ADMIN_JWT_SECRET must be configured');
+        }
+
+        return {
+          secret: adminJwtSecret,
+          signOptions: {
+            expiresIn:
+              configService.get<string>('ADMIN_JWT_EXPIRES_IN') ??
+              configService.get<string>('JWT_EXPIRES_IN') ??
+              '7d',
+          },
+        };
+      },
       inject: [ConfigService],
     }),
   ],

@@ -12,12 +12,15 @@ export class PrismaService
   private readonly logger = new Logger(PrismaService.name);
 
   constructor() {
+    const isProduction = process.env.NODE_ENV === 'production';
+    const logConfig: Prisma.PrismaClientOptions['log'] = [
+      ...(isProduction ? [] : [{ emit: 'event' as const, level: 'query' as const }]),
+      { emit: 'event' as const, level: 'error' as const },
+      { emit: 'event' as const, level: 'warn' as const },
+    ];
+
     super({
-      log: [
-        { emit: 'event', level: 'query' },
-        { emit: 'event', level: 'error' },
-        { emit: 'event', level: 'warn' },
-      ],
+      log: logConfig,
     });
   }
 
@@ -26,9 +29,11 @@ export class PrismaService
     await this.$connect();
     this.logger.log('Database connected successfully');
 
-    this.$on('query', (event: Prisma.QueryEvent) => {
-      this.logger.debug(`Query: ${event.query} — ${event.duration}ms`);
-    });
+    if (process.env.NODE_ENV !== 'production') {
+      this.$on('query', (event: Prisma.QueryEvent) => {
+        this.logger.debug(`Query: ${event.query} — ${event.duration}ms`);
+      });
+    }
 
     this.$on('error', (event: Prisma.LogEvent) => {
       this.logger.error(`Prisma error: ${event.message}`);

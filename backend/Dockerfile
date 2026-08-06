@@ -58,4 +58,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:3001/api/v1/health/ready || exit 1
 
 # Start application: run migrations, run TypeScript seed with ts-node ESM loader, then start app
-CMD ["sh", "-c", "npx prisma migrate deploy && node prisma/seed.js && node dist/src/main.js"]
+CMD ["sh", "-c", "npx prisma migrate deploy && npx prisma db seed && node dist/src/main.js"]

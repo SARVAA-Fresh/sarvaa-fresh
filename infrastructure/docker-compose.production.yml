@@ -48,7 +48,9 @@ services:
       DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-sarvaa}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-sarvaa_fresh}?schema=public}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      ADMIN_JWT_SECRET: ${ADMIN_JWT_SECRET:?ADMIN_JWT_SECRET is required}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      ADMIN_JWT_EXPIRES_IN: ${ADMIN_JWT_EXPIRES_IN:-7d}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       UPLOAD_LOCAL_PATH: ${UPLOAD_LOCAL_PATH:-/app/uploads}

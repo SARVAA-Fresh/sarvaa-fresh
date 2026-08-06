@@ -17,13 +17,16 @@ export class AdminJwtStrategy extends PassportStrategy(Strategy, 'admin-jwt') {
     private readonly configService: ConfigService,
     private readonly prisma: PrismaService,
   ) {
+    const adminJwtSecret = configService.get<string>('ADMIN_JWT_SECRET');
+
+    if (!adminJwtSecret) {
+      throw new Error('ADMIN_JWT_SECRET is not configured');
+    }
+
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey:
-  configService.get<string>('ADMIN_JWT_SECRET') ??
-  configService.get<string>('JWT_SECRET') ??
-  'change-me',
+      secretOrKey: adminJwtSecret,
     });
   }
 
