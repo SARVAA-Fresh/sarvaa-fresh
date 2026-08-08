@@ -56,11 +56,18 @@ export class OrdersService {
         throw new ForbiddenException('You can only use your own addresses');
       }
 
+      const inventories = await tx.inventory.findMany({
+        where: {
+          variantId: { in: cart.items.map((item) => item.variantId) },
+          deletedAt: null,
+        },
+      });
+      const inventoryByVariantId = new Map(
+        inventories.map((inventory) => [inventory.variantId, inventory]),
+      );
+
       for (const item of cart.items) {
-        const inventory = await tx.inventory.findFirst({
-          where: { variantId: item.variantId, deletedAt: null },
-          include: { variant: { include: { product: true } } },
-        });
+        const inventory = inventoryByVariantId.get(item.variantId);
 
         if (!inventory) {
           throw new BadRequestException(
@@ -68,38 +75,37 @@ export class OrdersService {
           );
         }
 
-        const reserveResult = await tx.inventory.updateMany({
-          where: {
-            id: inventory.id,
-            availableStock: { gte: item.quantity },
-            deletedAt: null,
-          },
-          data: {
-            availableStock: { decrement: item.quantity },
-            reservedStock: { increment: item.quantity },
-          },
-        });
+        const newAvailableStock = inventory.availableStock - item.quantity;
+        const newReservedStock = inventory.reservedStock + item.quantity;
 
-        if (reserveResult.count === 0) {
-          throw new BadRequestException(
-            `Insufficient stock for ${item.variant.product.name}. Available: ${inventory.availableStock}, Requested: ${item.quantity}`,
-          );
+        try {
+          await tx.inventory.update({
+            where: {
+              id: inventory.id,
+              availableStock: { gte: item.quantity },
+              deletedAt: null,
+            },
+            data: {
+              availableStock: { decrement: item.quantity },
+              reservedStock: { increment: item.quantity },
+              isInStock: newAvailableStock > 0,
+            },
+          });
+        } catch (error) {
+          if (
+            error instanceof Prisma.PrismaClientKnownRequestError &&
+            error.code === 'P2025'
+          ) {
+            throw new BadRequestException(
+              `Insufficient stock for ${item.variant.product.name}. Available: ${inventory.availableStock}, Requested: ${item.quantity}`,
+            );
+          }
+          throw error;
         }
 
-        const updatedInventory = await tx.inventory.findUnique({
-          where: { id: inventory.id },
-        });
-
-        if (!updatedInventory) {
-          throw new BadRequestException(
-            `Inventory not found for ${item.variant.product.name}`,
-          );
-        }
-
-        await tx.inventory.update({
-          where: { id: inventory.id },
-          data: { isInStock: updatedInventory.availableStock > 0 },
-        });
+        inventory.availableStock = newAvailableStock;
+        inventory.reservedStock = newReservedStock;
+        inventory.isInStock = newAvailableStock > 0;
       }
 
       let subtotal = new Prisma.Decimal(0);
@@ -132,45 +138,33 @@ export class OrdersService {
         },
       });
 
-      // 2. Create order items
-      for (const item of cart.items) {
-        await tx.orderItem.create({
-          data: {
-            orderId: order.id,
-            variantId: item.variantId,
-            productNameSnapshot: item.variant.product.name,
-            unitPrice: new Prisma.Decimal(item.variant.price.toString()),
-            quantity: item.quantity,
-            totalPrice: new Prisma.Decimal(item.totalPrice.toString()),
-          },
-        });
-      }
+      await tx.orderItem.createMany({
+        data: cart.items.map((item) => ({
+          orderId: order.id,
+          variantId: item.variantId,
+          productNameSnapshot: item.variant.product.name,
+          unitPrice: new Prisma.Decimal(item.variant.price.toString()),
+          quantity: item.quantity,
+          totalPrice: new Prisma.Decimal(item.totalPrice.toString()),
+        })),
+      });
 
-      // 3. Log inventory reservations
-      for (const item of cart.items) {
-        const inv = await tx.inventory.findUnique({
-          where: { variantId: item.variantId },
-        });
-        if (!inv) {
-          throw new BadRequestException(
-            `Inventory not found for variant ${item.variantId}`,
-          );
-        }
-
-        await tx.inventoryTransaction.create({
-          data: {
+      await tx.inventoryTransaction.createMany({
+        data: cart.items.map((item) => {
+          const inv = inventoryByVariantId.get(item.variantId)!;
+          return {
             variantId: item.variantId,
             inventoryId: inv.id,
-            type: 'RESERVE',
+            type: 'RESERVE' as const,
             quantityChange: -item.quantity,
             availableStockAfter: inv.availableStock,
             reservedStockAfter: inv.reservedStock,
             reason: 'Stock reserved for order',
             referenceId: order.id,
             referenceType: 'Order',
-          },
-        });
-      }
+          };
+        }),
+      });
 
       // 4. Clear cart items
       await tx.cartItem.updateMany({
