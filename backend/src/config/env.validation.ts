@@ -18,6 +18,10 @@ class EnvironmentValidator {
 
   @IsString()
   @IsNotEmpty()
+  ADMIN_JWT_SECRET!: string;
+
+  @IsString()
+  @IsNotEmpty()
   REDIS_URL!: string;
 
   @IsString()
@@ -27,11 +31,7 @@ class EnvironmentValidator {
   @IsString()
   JWT_EXPIRES_IN!: string;
 
-  // ─── File upload (MVP) ───────────────────────────────────────────────
-  // These are intentionally optional so existing .env files without the
-  // upload variables continue to boot. The runtime layers provide
-  // sensible defaults when the values are absent.
-
+  // File upload values remain optional; runtime layers provide defaults.
   @IsOptional()
   @IsString()
   UPLOAD_LOCAL_PATH?: string;
@@ -43,6 +43,32 @@ class EnvironmentValidator {
   @IsOptional()
   @IsNumber()
   UPLOAD_MAX_FILE_SIZE?: number;
+}
+
+const MIN_SECRET_LENGTH = 32;
+const PLACEHOLDER_SECRETS = new Set([
+  'change-me',
+  'change-me-to-a-256-bit-random-secret-key',
+  'change-me-to-a-different-admin-secret',
+  'replace-me',
+  'replace-with-strong-admin-jwt-secret',
+  'replace-with-strong-random-jwt-secret',
+  'password',
+]);
+
+function validateJwtSecret(name: string, value: unknown): void {
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    throw new Error(`${name} is required`);
+  }
+
+  const trimmed = value.trim();
+  if (trimmed.length < MIN_SECRET_LENGTH) {
+    throw new Error(`${name} must be at least ${MIN_SECRET_LENGTH} characters long`);
+  }
+
+  if (PLACEHOLDER_SECRETS.has(trimmed.toLowerCase())) {
+    throw new Error(`${name} must not use a placeholder value`);
+  }
 }
 
 export function validate(config: Record<string, unknown>) {
@@ -57,6 +83,9 @@ export function validate(config: Record<string, unknown>) {
   if (errors.length > 0) {
     throw new Error(`Environment validation failed: ${errors.toString()}`);
   }
+
+  validateJwtSecret('JWT_SECRET', validatedConfig.JWT_SECRET);
+  validateJwtSecret('ADMIN_JWT_SECRET', validatedConfig.ADMIN_JWT_SECRET);
 
   return validatedConfig;
 }

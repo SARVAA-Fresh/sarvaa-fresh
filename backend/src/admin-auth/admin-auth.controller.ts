@@ -5,6 +5,7 @@ import {
   ApiResponse,
   ApiBearerAuth,
 } from '@nestjs/swagger';
+import { ThrottlerGuard, Throttle, SkipThrottle } from '@nestjs/throttler';
 import { AdminAuthService } from './admin-auth.service';
 import { AdminLoginDto } from './dto/admin-login.dto';
 import { AdminJwtGuard } from '@/common/guards/admin-jwt.guard';
@@ -12,11 +13,13 @@ import { Public } from '@/common/decorators/public.decorator';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 
 @ApiTags('Admin Authentication')
+@UseGuards(ThrottlerGuard)
 @Controller('admin/auth')
 export class AdminAuthController {
   constructor(private readonly adminAuthService: AdminAuthService) {}
 
   @Public()
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -47,6 +50,7 @@ export class AdminAuthController {
     return this.adminAuthService.login(dto);
   }
 
+  @SkipThrottle()
   @Get('me')
   @UseGuards(AdminJwtGuard)
   @ApiBearerAuth('Bearer-auth')

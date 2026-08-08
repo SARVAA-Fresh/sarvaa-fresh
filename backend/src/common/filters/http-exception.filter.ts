@@ -5,8 +5,8 @@ import {
   HttpException,
   HttpStatus,
   Logger,
-} from '@nestjs/common';
-import { Request, Response } from 'express';
+} from "@nestjs/common";
+import { Request, Response } from "express";
 
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
@@ -18,16 +18,20 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const request = ctx.getRequest<Request>();
 
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
-    let message = 'Internal server error';
-    let error = 'Internal Server Error';
+    let message = "Internal server error";
+    let error = "Internal Server Error";
 
     if (exception instanceof HttpException) {
       status = exception.getStatus();
       const exceptionResponse = exception.getResponse();
 
-      if (typeof exceptionResponse === 'string') {
+      if (status === HttpStatus.TOO_MANY_REQUESTS) {
+        message =
+          "Too many login attempts. Please wait 60 seconds before trying again.";
+        error = "Too Many Requests";
+      } else if (typeof exceptionResponse === "string") {
         message = exceptionResponse;
-      } else if (typeof exceptionResponse === 'object') {
+      } else if (typeof exceptionResponse === "object") {
         const responseObj = exceptionResponse as Record<string, unknown>;
         message = (responseObj.message as string) || message;
         error = (responseObj.error as string) || exception.name;
@@ -46,13 +50,16 @@ export class HttpExceptionFilter implements ExceptionFilter {
       path: request.url,
     };
 
-    if (process.env.NODE_ENV === 'development') {
+    if (process.env.NODE_ENV === "development") {
       this.logger.error(
         `[${request.method}] ${request.url} - ${status}`,
         exception instanceof Error ? exception.stack : String(exception),
       );
     } else {
-      this.logger.error(`[${request.method}] ${request.url} - ${status}`, message);
+      this.logger.error(
+        `[${request.method}] ${request.url} - ${status}`,
+        message,
+      );
     }
 
     response.status(status).json(errorResponse);

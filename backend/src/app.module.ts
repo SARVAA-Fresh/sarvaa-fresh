@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
@@ -28,6 +29,13 @@ import { validate } from './config/env.validation';
       envFilePath: '.env',
       validate,
     }),
+    ThrottlerModule.forRoot([
+      {
+        name: 'default',
+        limit: 100,
+        ttl: 60_000,
+      },
+    ]),
     PrismaModule,
     AuthModule,
     UsersModule,
@@ -51,6 +59,5 @@ import { validate } from './config/env.validation';
       useClass: AppAuthGuard,
     },
   ],
-  exports: [AppModule],
 })
 export class AppModule {}
