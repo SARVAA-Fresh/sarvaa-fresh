@@ -18,6 +18,24 @@ function extractMessage(error: unknown): string {
   return "Something went wrong.";
 }
 
+function isValidRedirectPath(path: string): boolean {
+  if (!path.startsWith("/")) {
+    return false;
+  }
+  if (path.startsWith("//")) {
+    return false;
+  }
+  const lower = path.toLowerCase();
+  return !(
+    lower.startsWith("javascript:") ||
+    lower.startsWith("data:") ||
+    lower.startsWith("vbscript:") ||
+    lower.startsWith("file:") ||
+    lower.startsWith("http:") ||
+    lower.startsWith("https:")
+  );
+}
+
 function Spinner() {
   return (
     <div
@@ -33,7 +51,8 @@ function AuthPageContent() {
   const searchParams = useSearchParams();
   const { login, register, isAuthenticated } = useCustomerAuth();
   const modeParam = searchParams.get("mode");
-  const nextPath = searchParams.get("next") || "/";
+  const rawNext = searchParams.get("next") || "/";
+  const nextPath = isValidRedirectPath(rawNext) ? rawNext : "/";
   const [mode, setMode] = useState<"login" | "register">(
     modeParam === "register" ? "register" : "login",
   );
