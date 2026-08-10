@@ -1,5 +1,9 @@
 import type { NextConfig } from "next";
 
+const internalBackendOrigin = (
+  process.env.INTERNAL_BACKEND_ORIGIN ?? "http://localhost:3001"
+).replace(/\/+$/, "");
+
 const nextConfig: NextConfig = {
   output: "standalone",
   images: {
@@ -23,6 +27,14 @@ const nextConfig: NextConfig = {
         pathname: "/**",
       },
     ],
+  },
+  async rewrites() {
+    return [
+      {
+        source: "/uploads/:path*",
+        destination: `${internalBackendOrigin}/uploads/:path*`,
+      },
+    ];
   },
 };
 

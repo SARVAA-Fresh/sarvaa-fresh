@@ -3,12 +3,14 @@ import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { NestExpressApplication } from '@nestjs/platform-express';
-import { join } from 'path';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
-
+import {
+  normalizeLocalUploadUrlPrefix,
+  resolveLocalUploadDir,
+} from './storage/utils/local-upload-paths';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -116,8 +118,8 @@ async function bootstrap() {
   const uploadLocalPath = configService.get<string>('UPLOAD_LOCAL_PATH', './uploads');
   const uploadLocalUrlPrefix =
     configService.get<string>('UPLOAD_LOCAL_URL_PREFIX', '/uploads');
-  app.useStaticAssets(join(process.cwd(), uploadLocalPath), {
-    prefix: uploadLocalUrlPrefix,
+  app.useStaticAssets(resolveLocalUploadDir(uploadLocalPath), {
+    prefix: normalizeLocalUploadUrlPrefix(uploadLocalUrlPrefix),
   });
 
  await app.listen(port, '0.0.0.0');

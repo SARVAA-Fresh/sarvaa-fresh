@@ -68,9 +68,12 @@ export function buildAssetUrl(path: string | null | undefined): string | null {
   if (/^https?:\/\//i.test(path) || path.startsWith("data:")) {
     return path;
   }
+  const suffix = path.startsWith("/") ? path : `/${path}`;
+  if (suffix.startsWith("/uploads/")) {
+    return suffix;
+  }
   const apiUrl = new URL(getBaseUrl());
   const origin = `${apiUrl.protocol}//${apiUrl.host}`;
-  const suffix = path.startsWith("/") ? path : `/${path}`;
   return `${origin}${suffix}`;
 }
 

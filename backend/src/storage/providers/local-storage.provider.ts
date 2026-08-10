@@ -9,6 +9,10 @@ import { promises as fs } from 'fs';
 import * as path from 'path';
 import { randomUUID } from 'crypto';
 import { IStorageProvider, StorageSaveResult } from '../interfaces/storage-provider.interface';
+import {
+  normalizeLocalUploadUrlPrefix,
+  resolveLocalUploadDir,
+} from '../utils/local-upload-paths';
 
 /**
  * Maps an allowed MIME type to its canonical lower-case file extension.
@@ -33,8 +37,8 @@ export class LocalStorageProvider implements IStorageProvider {
     const configuredPath = configService.get<string>('UPLOAD_LOCAL_PATH');
     const configuredPrefix = configService.get<string>('UPLOAD_LOCAL_URL_PREFIX');
 
-    this.uploadDir = this.resolveUploadDir(configuredPath);
-    this.urlPrefix = this.normalizeUrlPrefix(configuredPrefix);
+    this.uploadDir = resolveLocalUploadDir(configuredPath);
+    this.urlPrefix = normalizeLocalUploadUrlPrefix(configuredPrefix);
 
     this.logger.log(
       `LocalStorageProvider initialised at "${this.uploadDir}" (prefix "${this.urlPrefix}")`,
@@ -111,28 +115,6 @@ export class LocalStorageProvider implements IStorageProvider {
     }
   }
 
-  /**
-   * Resolve and validate the upload directory from configuration.
-   * Always returned as an absolute path anchored at the current working
-   * directory so that path-joining cannot escape into unrelated trees.
-   */
-  private resolveUploadDir(configured?: string): string {
-    const candidate = (configured && configured.trim()) || './uploads';
-    const absolute = path.isAbsolute(candidate)
-      ? candidate
-      : path.resolve(process.cwd(), candidate);
-    return absolute;
-  }
-
-  /**
-   * Normalise the public URL prefix: ensure it begins with a single
-   * forward slash and does not end with one.
-   */
-  private normalizeUrlPrefix(configured?: string): string {
-    const candidate = (configured && configured.trim()) || '/uploads';
-    const trimmed = candidate.replace(/\/+$/, '');
-    return trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
-  }
 
   /**
    * Pick a safe extension based on the MIME type only — never trust the
