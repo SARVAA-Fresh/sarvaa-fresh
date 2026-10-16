@@ -91,7 +91,7 @@ services:
      args:
       NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:3001/api/v1}
       NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
-    INTERNAL_BACKEND_ORIGIN: ${INTERNAL_BACKEND_ORIGIN:-http://backend:3001}
+      INTERNAL_BACKEND_ORIGIN: ${INTERNAL_BACKEND_ORIGIN:-http://backend:3001}
     restart: unless-stopped
     environment:
       NODE_ENV: production

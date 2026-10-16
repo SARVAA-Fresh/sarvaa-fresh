@@ -5,6 +5,7 @@ import { InventoryService } from '@/inventory/inventory.service';
 import { ListOrdersQueryDto } from './dto/list-orders-query.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { Order, OrderStatus } from '@prisma/client';
+import { NotificationsService } from '@/notifications/notifications.service';
 
 const VALID_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   PENDING: [OrderStatus.CONFIRMED, OrderStatus.CANCELLED],
@@ -59,6 +60,7 @@ export class AdminOrdersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly inventoryService: InventoryService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   private formatDecimal(val: unknown): string {
@@ -207,6 +209,13 @@ export class AdminOrdersService {
 
       return updatedOrder;
     });
+
+    await this.notifications.notifyCustomerOfOrderStatus(
+      updated.id,
+      updated.orderNumber,
+      order.userId,
+      targetStatus,
+    );
 
     return this.formatOrder(updated as OrderWithItems);
   }

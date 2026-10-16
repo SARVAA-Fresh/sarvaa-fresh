@@ -2,10 +2,14 @@ import { Injectable, NotFoundException, ForbiddenException, BadRequestException 
 import { PrismaService } from '@/prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 import { CreateOrderDto } from './dto/create-order.dto';
+import { NotificationsService } from '@/notifications/notifications.service';
 
 @Injectable()
 export class OrdersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+  ) {}
 
   private generateOrderNumber(): string {
     return `ORD-${Date.now()}-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`;
@@ -29,7 +33,7 @@ export class OrdersService {
   }
 
   async create(userId: string, dto: CreateOrderDto) {
-    return this.prisma.$transaction(async (tx) => {
+    const order = await this.prisma.$transaction(async (tx) => {
       const cart = await tx.cart.findUnique({
         where: { userId },
         include: {
@@ -207,6 +211,15 @@ export class OrdersService {
         },
       });
     });
+
+    if (order) {
+      await this.notifications.notifyAdminOfOrderPlaced(
+        order.id,
+        order.orderNumber,
+      );
+    }
+
+    return order;
   }
 
   async findAll(userId: string, page = 1, limit = 20) {

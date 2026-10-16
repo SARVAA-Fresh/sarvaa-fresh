@@ -4,6 +4,7 @@ import {
   IsOptional,
   IsString,
   IsNotEmpty,
+  IsIn,
   validateSync,
 } from 'class-validator';
 
@@ -20,9 +21,10 @@ class EnvironmentValidator {
   @IsNotEmpty()
   ADMIN_JWT_SECRET!: string;
 
+  @IsOptional()
   @IsString()
   @IsNotEmpty()
-  REDIS_URL!: string;
+  REDIS_URL?: string;
 
   @IsString()
   @IsNotEmpty()
@@ -30,6 +32,10 @@ class EnvironmentValidator {
 
   @IsString()
   JWT_EXPIRES_IN!: string;
+
+  @IsOptional()
+  @IsIn(['true', 'false'])
+  ORDER_NOTIFICATIONS_ENABLED = 'false';
 
   // File upload values remain optional; runtime layers provide defaults.
   @IsOptional()

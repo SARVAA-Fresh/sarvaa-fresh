@@ -1,13 +1,12 @@
 # SARVAA Fresh API
 
-Hyperlocal commerce backend built with NestJS, Prisma, PostgreSQL, and Redis.
+Hyperlocal commerce backend built with NestJS, Prisma, and PostgreSQL.
 
 ## Tech Stack
 
 - **Framework**: NestJS 10+ with TypeScript
 - **ORM**: Prisma
 - **Database**: PostgreSQL
-- **Cache**: Redis
 - **Authentication**: JWT with Passport
 - **API Documentation**: Swagger/OpenAPI
 
@@ -15,8 +14,14 @@ Hyperlocal commerce backend built with NestJS, Prisma, PostgreSQL, and Redis.
 
 - Node.js >= 20
 - PostgreSQL 14+
-- Redis 6+
 - Docker & Docker Compose (optional)
+
+Redis is not required by the current backend runtime. `REDIS_URL` may be omitted;
+Docker Compose and existing environment files may continue to set it.
+
+Order notifications are disabled by default with
+`ORDER_NOTIFICATIONS_ENABLED=false`. The backend currently provides only a
+provider-neutral notification interface and no delivery provider.
 
 ## Setup
 
