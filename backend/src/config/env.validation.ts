@@ -49,6 +49,30 @@ class EnvironmentValidator {
   @IsOptional()
   @IsNumber()
   UPLOAD_MAX_FILE_SIZE?: number;
+
+  @IsOptional()
+  @IsIn(['local', 'r2'])
+  STORAGE_PROVIDER = 'local';
+
+  @IsOptional()
+  @IsString()
+  R2_ACCOUNT_ID?: string;
+
+  @IsOptional()
+  @IsString()
+  R2_ACCESS_KEY_ID?: string;
+
+  @IsOptional()
+  @IsString()
+  R2_SECRET_ACCESS_KEY?: string;
+
+  @IsOptional()
+  @IsString()
+  R2_BUCKET_NAME?: string;
+
+  @IsOptional()
+  @IsString()
+  R2_PUBLIC_URL?: string;
 }
 
 const MIN_SECRET_LENGTH = 32;
