@@ -33,6 +33,9 @@ export const metadata: Metadata = {
     description: "SARVAA Fresh storefront and admin portal",
     images: ["/brand/logo.png"],
   },
+  verification: {
+    google: "ueqK8D0GlYDdi9JDm5GBV0srPEYoo1O-zsfVKRxAtfo",
+  },
 };
 
 export default function RootLayout({
