@@ -109,6 +109,47 @@ export default function OrderDetailPage() {
       cancelled = true;
     };
   }, [params.id, isAuthenticated]);
+    // Refresh order status while the customer views the order.
+  useEffect(() => {
+    if (!isAuthenticated || !params.id) {
+      return;
+    }
+
+    let cancelled = false;
+    let inFlight = false;
+
+    async function refreshOrder() {
+      if (cancelled || inFlight || document.visibilityState !== "visible") {
+        return;
+      }
+
+      inFlight = true;
+
+      try {
+        const updatedOrder = await get<CustomerOrder>(
+          `/orders/${params.id}`,
+          { authScope: "customer" },
+        );
+
+        if (!cancelled) {
+          setOrder(updatedOrder);
+        }
+      } catch {
+        // Keep the last successfully loaded order if a refresh fails.
+      } finally {
+        inFlight = false;
+      }
+    }
+
+    const intervalId = window.setInterval(() => {
+      void refreshOrder();
+    }, 15_000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [params.id, isAuthenticated]);
 
   useEffect(() => {
     return () => {
