@@ -5,7 +5,13 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 import { ApiError } from "@/lib/api/types";
-import { buildAssetUrl, get, isImageUrl, post, postForm } from "@/lib/api/client";
+import {
+  buildAssetUrl,
+  get,
+  isImageUrl,
+  post,
+  postForm,
+} from "@/lib/api/client";
 import type {
   Address,
   AddressListResponse,
@@ -21,6 +27,7 @@ import {
   EMPTY_ADDRESS_FORM,
   type AddressFormState,
   toAddressRequest,
+  validateAddressForm,
 } from "@/components/storefront/AddressForm";
 import {
   calculateDeliveryPolicy,
@@ -113,6 +120,9 @@ export default function CheckoutPage() {
   const [selectedAddressId, setSelectedAddressId] = useState("");
   const [addressForm, setAddressForm] =
     useState<AddressFormState>(EMPTY_ADDRESS_FORM);
+  const [addressFormErrors, setAddressFormErrors] = useState<
+    Partial<Record<keyof AddressFormState, string>>
+  >({});
   const [isSavingAddress, setIsSavingAddress] = useState(false);
   const [placeError, setPlaceError] = useState<string | null>(null);
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
@@ -172,7 +182,8 @@ export default function CheckoutPage() {
         });
         if (cancelled) return;
         setAddresses(data);
-        const defaultAddress = data.find((address) => address.isDefault) ?? data[0] ?? null;
+        const defaultAddress =
+          data.find((address) => address.isDefault) ?? data[0] ?? null;
         setSelectedAddressId(defaultAddress?.id ?? "");
       } catch (error) {
         if (cancelled) return;
@@ -209,27 +220,37 @@ export default function CheckoutPage() {
   const payableTotal = subtotal + deliveryPolicy.deliveryCharge;
   const noPaymentMethods = availablePaymentMethods.length === 0;
   const placedOrderQrImageUrl =
-    placedOrder?.payment?.qrImageUrl && isImageUrl(placedOrder.payment.qrImageUrl)
+    placedOrder?.payment?.qrImageUrl &&
+    isImageUrl(placedOrder.payment.qrImageUrl)
       ? placedOrder.payment.qrImageUrl
       : settings.payment.qrImageUrl && isImageUrl(settings.payment.qrImageUrl)
         ? settings.payment.qrImageUrl
         : null;
 
   async function handleCreateAddress() {
-    const payload = toAddressRequest(addressForm);
-    if (!payload.label || !payload.fullName || !payload.mobile || !payload.addressLine1 || !payload.area || !payload.city || !payload.state || !payload.pincode) {
-      setAddressError("Please fill out the address fields.");
+    const errors = validateAddressForm(addressForm);
+    setAddressFormErrors(errors);
+
+    if (Object.keys(errors).length > 0) {
+      setAddressError("Please correct the highlighted fields.");
       return;
     }
+
+    const payload = toAddressRequest(addressForm);
     setIsSavingAddress(true);
     setAddressError(null);
+
     try {
       const created = await post<Address>("/addresses", payload, {
         authScope: "customer",
       });
-      setAddresses((current) => [created, ...current.filter((address) => address.id !== created.id)]);
+      setAddresses((current) => [
+        created,
+        ...current.filter((address) => address.id !== created.id),
+      ]);
       setSelectedAddressId(created.id);
       setAddressForm(EMPTY_ADDRESS_FORM);
+      setAddressFormErrors({});
     } catch (error) {
       setAddressError(extractMessage(error));
     } finally {
@@ -252,7 +273,9 @@ export default function CheckoutPage() {
       return;
     }
     if (noPaymentMethods) {
-      setPlaceError("No payment method is currently available. Please contact the store.");
+      setPlaceError(
+        "No payment method is currently available. Please contact the store.",
+      );
       return;
     }
     if (!availablePaymentMethods.includes(paymentMethod)) {
@@ -266,17 +289,25 @@ export default function CheckoutPage() {
 
     try {
       await syncToBackend();
-      const order = await post<{ id: string; orderNumber: string }>("/orders", {
-        addressId: selectedAddressId,
-      } satisfies CreateOrderRequest, {
-        authScope: "customer",
-      });
+      const order = await post<{ id: string; orderNumber: string }>(
+        "/orders",
+        {
+          addressId: selectedAddressId,
+        } satisfies CreateOrderRequest,
+        {
+          authScope: "customer",
+        },
+      );
       const payment = await post<Payment>(
         `/payments/order/${order.id}`,
         { paymentMethod },
         { authScope: "customer" },
       );
-      setPlacedOrder({ orderId: order.id, orderNumber: order.orderNumber, payment });
+      setPlacedOrder({
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        payment,
+      });
       clearCart();
     } catch (error) {
       setPlaceError(extractMessage(error));
@@ -386,13 +417,17 @@ export default function CheckoutPage() {
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-zinc-600">Merchant</span>
                   <span className="text-right font-semibold text-zinc-950">
-                    {placedOrder.payment.merchantName || settings.payment.upiDisplayName || "Not configured"}
+                    {placedOrder.payment.merchantName ||
+                      settings.payment.upiDisplayName ||
+                      "Not configured"}
                   </span>
                 </div>
                 <div className="mt-2 flex items-center justify-between gap-3">
                   <span className="text-zinc-600">UPI ID</span>
                   <span className="break-all text-right font-semibold text-zinc-950">
-                    {placedOrder.payment.upiId || settings.payment.upiId || "Not configured"}
+                    {placedOrder.payment.upiId ||
+                      settings.payment.upiId ||
+                      "Not configured"}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
@@ -401,9 +436,11 @@ export default function CheckoutPage() {
                     {formatMoney(placedOrder.payment.amount)}
                   </span>
                 </div>
-                {(placedOrder.payment.paymentInstructions || settings.payment.instructions) && (
+                {(placedOrder.payment.paymentInstructions ||
+                  settings.payment.instructions) && (
                   <p className="mt-3 rounded-xl bg-white p-3 text-zinc-600">
-                    {placedOrder.payment.paymentInstructions || settings.payment.instructions}
+                    {placedOrder.payment.paymentInstructions ||
+                      settings.payment.instructions}
                   </p>
                 )}
                 <div className="mt-3 flex flex-wrap gap-2">
@@ -412,7 +449,9 @@ export default function CheckoutPage() {
                       type="button"
                       onClick={() =>
                         void navigator.clipboard?.writeText(
-                          placedOrder.payment?.upiId || settings.payment.upiId || "",
+                          placedOrder.payment?.upiId ||
+                            settings.payment.upiId ||
+                            "",
                         )
                       }
                       className="rounded-full border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-800 hover:bg-zinc-50"
@@ -436,7 +475,10 @@ export default function CheckoutPage() {
               {placedOrderQrImageUrl && (
                 <div className="rounded-2xl bg-white p-3 text-center">
                   <img
-                    src={buildAssetUrl(placedOrderQrImageUrl) ?? placedOrderQrImageUrl}
+                    src={
+                      buildAssetUrl(placedOrderQrImageUrl) ??
+                      placedOrderQrImageUrl
+                    }
                     alt="UPI payment QR code"
                     className="mx-auto h-48 w-48 rounded-xl object-contain"
                   />
@@ -484,7 +526,11 @@ export default function CheckoutPage() {
                 disabled={isUploadingProof || !proofFile}
                 className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-emerald-700 px-4 py-3 text-sm font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-zinc-300"
               >
-                {isUploadingProof ? <Spinner /> : <Icon name="upload" className="h-4 w-4" />}
+                {isUploadingProof ? (
+                  <Spinner />
+                ) : (
+                  <Icon name="upload" className="h-4 w-4" />
+                )}
                 {isUploadingProof ? "Uploading..." : "Upload proof"}
               </button>
             </div>
@@ -581,11 +627,14 @@ export default function CheckoutPage() {
                         </p>
                         <p className="mt-1 text-sm text-zinc-600">
                           {address.addressLine1}
-                          {address.addressLine2 ? `, ${address.addressLine2}` : ""}
+                          {address.addressLine2
+                            ? `, ${address.addressLine2}`
+                            : ""}
                           {address.landmark ? `, ${address.landmark}` : ""}
                         </p>
                         <p className="mt-1 text-sm text-zinc-600">
-                          {address.area}, {address.city}, {address.state} {address.pincode}
+                          {address.area}, {address.city}, {address.state}{" "}
+                          {address.pincode}
                         </p>
                       </div>
                     </div>
@@ -594,25 +643,42 @@ export default function CheckoutPage() {
               </div>
 
               <div className="mt-6 rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
-                <p className="text-sm font-semibold text-zinc-950">Add a new address</p>
+                <p className="text-sm font-semibold text-zinc-950">
+                  Add a new address
+                </p>
                 <div className="mt-4">
                   <AddressForm
                     form={addressForm}
-                    onChange={(patch) =>
-                      setAddressForm((current) => ({ ...current, ...patch }))
-                    }
+                    errors={addressFormErrors}
+                    onChange={(patch) => {
+                      setAddressForm((current) => ({ ...current, ...patch }));
+                      setAddressFormErrors((current) => {
+                        const next = { ...current };
+                        for (const key of Object.keys(
+                          patch,
+                        ) as (keyof AddressFormState)[]) {
+                          delete next[key];
+                        }
+                        return next;
+                      });
+                      setAddressError(null);
+                    }}
                     disabled={isSavingAddress}
                   />
+                  <button
+                    type="button"
+                    onClick={() => void handleCreateAddress()}
+                    disabled={isSavingAddress}
+                    className="mt-4 inline-flex items-center gap-2 rounded-full bg-emerald-700 px-4 py-3 text-sm font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-zinc-300"
+                  >
+                    {isSavingAddress ? (
+                      <Spinner />
+                    ) : (
+                      <Icon name="plus" className="h-4 w-4" />
+                    )}
+                    Save address
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => void handleCreateAddress()}
-                  disabled={isSavingAddress}
-                  className="mt-4 inline-flex items-center gap-2 rounded-full bg-emerald-700 px-4 py-3 text-sm font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-zinc-300"
-                >
-                  {isSavingAddress ? <Spinner /> : <Icon name="plus" className="h-4 w-4" />}
-                  Save address
-                </button>
               </div>
             </>
           )}
@@ -625,27 +691,30 @@ export default function CheckoutPage() {
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             {noPaymentMethods ? (
               <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700 sm:col-span-2">
-                No payment method is currently available. Please contact the store.
+                No payment method is currently available. Please contact the
+                store.
               </div>
-            ) : availablePaymentMethods.map((method) => (
-              <button
-                key={method}
-                type="button"
-                onClick={() => setPaymentMethod(method)}
-                className={`rounded-2xl border p-4 text-left transition-colors ${
-                  paymentMethod === method
-                    ? "border-emerald-300 bg-emerald-50/50"
-                    : "border-zinc-200 bg-white hover:bg-zinc-50"
-                }`}
-              >
-                <p className="font-semibold text-zinc-950">{method}</p>
-                <p className="mt-1 text-sm text-zinc-600">
-                  {method === "COD"
-                    ? "Pay when the order arrives."
-                    : "Pay with UPI and upload the proof image."}
-                </p>
-              </button>
-            ))}
+            ) : (
+              availablePaymentMethods.map((method) => (
+                <button
+                  key={method}
+                  type="button"
+                  onClick={() => setPaymentMethod(method)}
+                  className={`rounded-2xl border p-4 text-left transition-colors ${
+                    paymentMethod === method
+                      ? "border-emerald-300 bg-emerald-50/50"
+                      : "border-zinc-200 bg-white hover:bg-zinc-50"
+                  }`}
+                >
+                  <p className="font-semibold text-zinc-950">{method}</p>
+                  <p className="mt-1 text-sm text-zinc-600">
+                    {method === "COD"
+                      ? "Pay when the order arrives."
+                      : "Pay with UPI and upload the proof image."}
+                  </p>
+                </button>
+              ))
+            )}
           </div>
         </div>
       </section>
@@ -660,12 +729,17 @@ export default function CheckoutPage() {
 
         <div className="space-y-2 rounded-2xl bg-zinc-50 p-4 text-sm">
           {lines.map((line) => (
-            <div key={line.key} className="flex items-center justify-between gap-3">
+            <div
+              key={line.key}
+              className="flex items-center justify-between gap-3"
+            >
               <span className="truncate text-zinc-600">
                 {line.product.name} x {line.quantity}
               </span>
               <span className="font-medium text-zinc-950">
-                {formatMoney(Number.parseFloat(line.variant.price) * line.quantity)}
+                {formatMoney(
+                  Number.parseFloat(line.variant.price) * line.quantity,
+                )}
               </span>
             </div>
           ))}
@@ -712,10 +786,19 @@ export default function CheckoutPage() {
         <button
           type="button"
           onClick={() => void handlePlaceOrder()}
-          disabled={isPlacingOrder || lines.length === 0 || deliveryPolicy.checkoutDisabled || noPaymentMethods}
+          disabled={
+            isPlacingOrder ||
+            lines.length === 0 ||
+            deliveryPolicy.checkoutDisabled ||
+            noPaymentMethods
+          }
           className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-emerald-700 px-4 py-3 text-sm font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-zinc-300"
         >
-          {isPlacingOrder ? <Spinner /> : <Icon name="coin" className="h-4 w-4" />}
+          {isPlacingOrder ? (
+            <Spinner />
+          ) : (
+            <Icon name="coin" className="h-4 w-4" />
+          )}
           {isPlacingOrder ? "Placing order..." : "Place order"}
         </button>
       </aside>

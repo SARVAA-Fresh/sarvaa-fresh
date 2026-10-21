@@ -3,7 +3,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, Eye, Heart, ImageIcon, Plus, Sparkles } from "lucide-react";
-
+import { useState } from "react";
+import { useCart } from "@/lib/cart/CartProvider";
 import { buildAssetUrl } from "@/lib/api/client";
 import type { Product, ProductImage, ProductVariant } from "@/lib/api/types";
 import {
@@ -35,6 +36,8 @@ function firstVariant(product: Product): ProductVariant | null {
 }
 
 export function ProductCard({ product }: { product: Product }) {
+  const { addLine } = useCart();
+  const [added, setAdded] = useState(false);
   const image = primaryImage(product);
   const variant = firstVariant(product);
   const src = buildAssetUrl(image?.imageUrl ?? product.imageUrl);
@@ -106,9 +109,9 @@ export function ProductCard({ product }: { product: Product }) {
             "Freshly selected produce with reliable daily quality."}
         </p>
 
-        <div className="flex items-end justify-between gap-3">
-          <div>
-            <div className="flex items-baseline gap-2">
+          <div className="flex items-end justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-baseline gap-2">
               <p className="text-lg font-black text-zinc-950 sm:text-xl">
                 {formatMoney(pricing.price)}
               </p>
@@ -129,14 +132,35 @@ export function ProductCard({ product }: { product: Product }) {
                 : "Variant unavailable"}
             </p>
           </div>
-          <Link
-            href={`/products/${product.id}`}
+
+          <button
+            type="button"
+            disabled={
+              !product.isActive ||
+              !variant ||
+              !variant.isActive ||
+              stockStatus.tone === "danger"
+            }
+            onClick={() => {
+              if (
+                !variant ||
+                !product.isActive ||
+                !variant.isActive ||
+                stockStatus.tone === "danger"
+              ) {
+                return;
+              }
+
+              addLine(product, variant);
+              setAdded(true);
+              window.setTimeout(() => setAdded(false), 1500);
+            }}
             aria-label={`Add ${product.name} to cart`}
-            className="inline-flex h-12 items-center justify-center gap-1.5 rounded-full bg-[#14532d] px-3 text-xs font-bold text-white shadow-lg shadow-emerald-900/20 transition hover:-translate-y-0.5 hover:bg-[#0f3f23] sm:h-11"
+            className="inline-flex h-12 shrink-0 items-center justify-center gap-1.5 rounded-full bg-[#14532d] px-3 text-xs font-bold text-white shadow-lg transition hover:bg-[#0f3f23] disabled:cursor-not-allowed disabled:opacity-50 sm:h-11"
           >
             <Plus className="h-5 w-5" aria-hidden="true" />
-            Add to Cart
-          </Link>
+            {added ? "Added ✓" : "Add to Cart"}
+          </button>
         </div>
 
         <div className="grid grid-cols-2 gap-2 border-t border-emerald-50 pt-3">

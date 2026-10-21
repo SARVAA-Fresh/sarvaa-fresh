@@ -18,6 +18,7 @@ import {
   EMPTY_ADDRESS_FORM,
   type AddressFormState,
   toAddressRequest,
+  validateAddressForm,
 } from "@/components/storefront/AddressForm";
 
 function extractMessage(error: unknown): string {
@@ -80,7 +81,9 @@ function Icon({
           <line x1="14" y1="11" x2="14" y2="17" />
         </>
       )}
-      {name === "star" && <path d="M12 2l2.9 6.1L21 9l-4.5 4.3L17.6 20 12 16.9 6.4 20l1.1-6.7L3 9l6.1-.9L12 2z" />}
+      {name === "star" && (
+        <path d="M12 2l2.9 6.1L21 9l-4.5 4.3L17.6 20 12 16.9 6.4 20l1.1-6.7L3 9l6.1-.9L12 2z" />
+      )}
       {name === "check" && <polyline points="20 6 9 17 4 12" />}
     </svg>
   );
@@ -100,7 +103,12 @@ function Modal({
   if (!isOpen) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center px-4 py-6">
-      <button type="button" className="fixed inset-0 bg-zinc-900/40" onClick={onClose} aria-label="Close dialog" />
+      <button
+        type="button"
+        className="fixed inset-0 bg-zinc-900/40"
+        onClick={onClose}
+        aria-label="Close dialog"
+      />
       <div className="relative my-auto w-full max-w-2xl rounded-[28px] border border-zinc-200 bg-white p-5 shadow-lg">
         <div className="mb-4 flex items-center justify-between gap-3">
           <h2 className="text-lg font-semibold text-zinc-950">{title}</h2>
@@ -126,12 +134,17 @@ export default function AccountPage() {
   const [modalMode, setModalMode] = useState<"create" | "edit" | null>(null);
   const [editingAddress, setEditingAddress] = useState<Address | null>(null);
   const [form, setForm] = useState<AddressFormState>(EMPTY_ADDRESS_FORM);
+  const [formErrors, setFormErrors] = useState<
+    Partial<Record<keyof AddressFormState, string>>
+  >({});
   const [formError, setFormError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Address | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [defaultChangingId, setDefaultChangingId] = useState<string | null>(null);
+  const [defaultChangingId, setDefaultChangingId] = useState<string | null>(
+    null,
+  );
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -167,7 +180,7 @@ export default function AccountPage() {
     setModalMode("create");
     setEditingAddress(null);
     setForm(EMPTY_ADDRESS_FORM);
-    setFormError(null);
+    setFormErrors({});
   }
 
   function openEdit(address: Address) {
@@ -191,6 +204,15 @@ export default function AccountPage() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    const errors = validateAddressForm(form);
+    setFormErrors(errors);
+
+    if (Object.keys(errors).length > 0) {
+      setFormError("Please correct the highlighted fields.");
+      return;
+    }
+
     setIsSaving(true);
     setFormError(null);
     try {
@@ -199,21 +221,38 @@ export default function AccountPage() {
         const created = await post<Address>("/addresses", payload, {
           authScope: "customer",
         });
-        setAddresses((current) => [created, ...current.filter((address) => address.id !== created.id)]);
+        setAddresses((current) => [
+          created,
+          ...current.filter((address) => address.id !== created.id),
+        ]);
         setSuccessMessage("Address created.");
       } else if (modalMode === "edit" && editingAddress) {
         const updatePayload: UpdateAddressRequest = {};
         const nextPayload: CreateAddressRequest = payload;
-        const currentValues = editingAddress as unknown as Record<string, unknown>;
-        (Object.keys(nextPayload) as (keyof CreateAddressRequest)[]).forEach((key) => {
-          if (nextPayload[key] !== currentValues[key]) {
-            (updatePayload as Record<string, unknown>)[key] = nextPayload[key];
-          }
-        });
-        const updated = await patch<Address>(`/addresses/${editingAddress.id}`, updatePayload, {
-          authScope: "customer",
-        });
-        setAddresses((current) => current.map((address) => (address.id === updated.id ? updated : address)));
+        const currentValues = editingAddress as unknown as Record<
+          string,
+          unknown
+        >;
+        (Object.keys(nextPayload) as (keyof CreateAddressRequest)[]).forEach(
+          (key) => {
+            if (nextPayload[key] !== currentValues[key]) {
+              (updatePayload as Record<string, unknown>)[key] =
+                nextPayload[key];
+            }
+          },
+        );
+        const updated = await patch<Address>(
+          `/addresses/${editingAddress.id}`,
+          updatePayload,
+          {
+            authScope: "customer",
+          },
+        );
+        setAddresses((current) =>
+          current.map((address) =>
+            address.id === updated.id ? updated : address,
+          ),
+        );
         setSuccessMessage("Address updated.");
       }
       setModalMode(null);
@@ -233,7 +272,9 @@ export default function AccountPage() {
       await deleteRequest(`/addresses/${deleteTarget.id}`, {
         authScope: "customer",
       });
-      setAddresses((current) => current.filter((address) => address.id !== deleteTarget.id));
+      setAddresses((current) =>
+        current.filter((address) => address.id !== deleteTarget.id),
+      );
       setDeleteTarget(null);
       setSuccessMessage("Address deleted.");
     } catch (error) {
@@ -247,10 +288,18 @@ export default function AccountPage() {
     setDefaultChangingId(address.id);
     setErrorMessage(null);
     try {
-      const updated = await patch<Address>(`/addresses/${address.id}/default`, {}, {
-        authScope: "customer",
-      });
-      setAddresses((current) => current.map((item) => (item.id === updated.id ? updated : { ...item, isDefault: false })));
+      const updated = await patch<Address>(
+        `/addresses/${address.id}/default`,
+        {},
+        {
+          authScope: "customer",
+        },
+      );
+      setAddresses((current) =>
+        current.map((item) =>
+          item.id === updated.id ? updated : { ...item, isDefault: false },
+        ),
+      );
       setSuccessMessage("Default address updated.");
     } catch (error) {
       setErrorMessage(extractMessage(error));
@@ -361,7 +410,9 @@ export default function AccountPage() {
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-semibold text-zinc-950">{address.label}</p>
+                      <p className="font-semibold text-zinc-950">
+                        {address.label}
+                      </p>
                       {address.isDefault && (
                         <span className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-emerald-800">
                           <Icon name="check" className="h-3.5 w-3.5" />
@@ -369,13 +420,16 @@ export default function AccountPage() {
                         </span>
                       )}
                     </div>
-                    <p className="mt-1 text-sm text-zinc-600">{address.fullName} | {address.mobile}</p>
+                    <p className="mt-1 text-sm text-zinc-600">
+                      {address.fullName} | {address.mobile}
+                    </p>
                     <p className="mt-1 text-sm text-zinc-600">
                       {address.addressLine1}
                       {address.addressLine2 ? `, ${address.addressLine2}` : ""}
                     </p>
                     <p className="mt-1 text-sm text-zinc-600">
-                      {address.area}, {address.city}, {address.state} {address.pincode}
+                      {address.area}, {address.city}, {address.state}{" "}
+                      {address.pincode}
                     </p>
                   </div>
                   <div className="flex flex-col gap-2 sm:flex-row">
@@ -386,7 +440,11 @@ export default function AccountPage() {
                         disabled={defaultChangingId === address.id}
                         className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-white px-3 py-2 text-xs font-semibold text-emerald-800 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        {defaultChangingId === address.id ? <Spinner /> : <Icon name="star" className="h-3.5 w-3.5" />}
+                        {defaultChangingId === address.id ? (
+                          <Spinner />
+                        ) : (
+                          <Icon name="star" className="h-3.5 w-3.5" />
+                        )}
                         Make default
                       </button>
                     )}
@@ -430,7 +488,20 @@ export default function AccountPage() {
           )}
           <AddressForm
             form={form}
-            onChange={(patch) => setForm((current) => ({ ...current, ...patch }))}
+            errors={formErrors}
+            onChange={(patch) => {
+              setForm((current) => ({ ...current, ...patch }));
+              setFormErrors((current) => {
+                const next = { ...current };
+                for (const key of Object.keys(
+                  patch,
+                ) as (keyof AddressFormState)[]) {
+                  delete next[key];
+                }
+                return next;
+              });
+              setFormError(null);
+            }}
           />
           <button
             type="submit"
@@ -450,7 +521,11 @@ export default function AccountPage() {
       >
         <div className="space-y-4">
           <p className="text-sm text-zinc-600">
-            Delete <span className="font-semibold text-zinc-950">{deleteTarget?.label}</span>?
+            Delete{" "}
+            <span className="font-semibold text-zinc-950">
+              {deleteTarget?.label}
+            </span>
+            ?
           </p>
           <div className="flex gap-3">
             <button
