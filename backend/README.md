@@ -48,9 +48,20 @@ npx prisma generate
 # Run Migrations
 npx prisma migrate dev
 
-# (Optional) Seed Database
+# (Optional) Seed development/test catalog data
 npx prisma db seed
 ```
+
+The Prisma seed only adds the sample categories, products, variants, and
+inventory that are missing. It does not create or update customer or admin
+accounts. Use a development or test database only; do not run the catalog seed
+against production unless adding its sample catalog data is explicitly
+intended. Prisma may invoke the configured seed during development workflows
+that reset the database.
+
+Create administrator and customer accounts through the application or an
+approved account-provisioning process. Never add default passwords or account
+credentials to the seed.
 
 ### 4. Start Development Server
 

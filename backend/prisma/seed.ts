@@ -1,20 +1,6 @@
 import { PrismaClient, Prisma } from '@prisma/client';
-import bcrypt from 'bcryptjs';
-
-// ts-node ESM interop can yield different shapes for imported CommonJS modules.
-// Resolve a reliable `hash` function reference for both CJS and ESM interop.
-const _bcryptAny: any = bcrypt as any;
-const hashFn: (s: string, saltOrRounds: number) => Promise<string> =
-  _bcryptAny.hash ?? _bcryptAny.default?.hash ?? (async (s: string, r: number) => {
-    // Fallback: try sync hash in case only sync API is available
-    const syncHash = _bcryptAny.hashSync ?? _bcryptAny.default?.hashSync;
-    if (syncHash) return Promise.resolve(syncHash(s, r));
-    throw new Error('bcrypt.hash function not available');
-  });
 
 const prisma = new PrismaClient();
-
-const SALT_ROUNDS = 10;
 
 interface CategorySeed {
   name: string;
@@ -92,67 +78,6 @@ const PRODUCT_SEEDS_BY_CATEGORY: Record<string, ProductSeed[]> = {
     },
   ],
 };
-
-async function seedSuperAdmin(): Promise<void> {
-  const email = 'sarvaafresh@gmail.com';
-  const passwordHash = await hashFn('Admin@123', SALT_ROUNDS);
-
-  const admin = await prisma.admin.upsert({
-    where: { email },
-    update: {},
-    create: {
-      fullName: 'SARVAA Admin',
-      email,
-      passwordHash,
-      role: 'SUPER_ADMIN',
-      isActive: true,
-    },
-  });
-
-  console.log(`Admin seed: SUPER_ADMIN ${admin.email} ready (id=${admin.id}).`);
-}
-
-async function seedDemoCustomer(): Promise<void> {
-  const mobile = '9876543210';
-  const email = 'demo@example.com';
-
-  const existingByMobile = await prisma.user.findUnique({
-    where: { mobile },
-  });
-  if (existingByMobile) {
-    console.log(
-      `Customer seed: demo customer with mobile ${mobile} already exists, skipping.`,
-    );
-    return;
-  }
-
-  const existingByEmail = await prisma.user.findUnique({
-    where: { email },
-  });
-  if (existingByEmail) {
-    console.log(
-      `Customer seed: a user with email ${email} already exists, skipping demo customer creation.`,
-    );
-    return;
-  }
-
-  const passwordHash = await hashFn('Customer@123', SALT_ROUNDS);
-
-  const customer = await prisma.user.create({
-    data: {
-      fullName: 'Demo Customer',
-      mobile,
-      email,
-      passwordHash,
-      role: 'CUSTOMER',
-      isActive: true,
-    },
-  });
-
-  console.log(
-    `Customer seed: demo customer created with id=${customer.id}, mobile=${customer.mobile}.`,
-  );
-}
 
 async function seedCategories(): Promise<{ id: string; slug: string }[]> {
   const result: { id: string; slug: string }[] = [];
@@ -289,8 +214,6 @@ async function seedProductsForCategory(category: {
 async function main(): Promise<void> {
   console.log('--- Prisma seed started ---');
 
-  await seedSuperAdmin();
-  await seedDemoCustomer();
   const categories = await seedCategories();
 
   for (const category of categories) {
