@@ -183,9 +183,19 @@ export class AdminOrdersService {
 
     const updated = await this.prisma.$transaction(async (tx) => {
       const updatedOrder = await tx.order.update({
-        where: { id },
+        where: { id, deletedAt: null, currentStatus },
         data: { currentStatus: targetStatus },
         include: { items: true },
+      }).catch((error: unknown) => {
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === 'P2025'
+        ) {
+          throw new BadRequestException(
+            'Order status changed before this update could be applied',
+          );
+        }
+        throw error;
       });
 
       await tx.orderStatusHistory.create({
@@ -199,7 +209,8 @@ export class AdminOrdersService {
 
       if (targetStatus === OrderStatus.DELIVERED) {
         for (const item of order.items) {
-          await this.inventoryService.confirmStockDeduction(
+          await this.inventoryService.confirmStockDeductionInTransaction(
+            tx,
             item.variantId,
             item.quantity,
             order.id,
@@ -244,19 +255,40 @@ export class AdminOrdersService {
     }
 
     const updated = await this.prisma.$transaction(async (tx) => {
+      const updatedOrder = await tx.order.update({
+        where: {
+          id,
+          deletedAt: null,
+          currentStatus: {
+            in: [
+              OrderStatus.PENDING,
+              OrderStatus.CONFIRMED,
+              OrderStatus.PACKING,
+            ],
+          },
+        },
+        data: { currentStatus: OrderStatus.CANCELLED },
+        include: { items: true },
+      }).catch((error: unknown) => {
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === 'P2025'
+        ) {
+          throw new BadRequestException(
+            'Order status changed and it can no longer be cancelled',
+          );
+        }
+        throw error;
+      });
+
       for (const item of order.items) {
-        await this.inventoryService.releaseStock(
+        await this.inventoryService.releaseStockInTransaction(
+          tx,
           item.variantId,
           item.quantity,
           order.id,
         );
       }
-
-      const updatedOrder = await tx.order.update({
-        where: { id },
-        data: { currentStatus: OrderStatus.CANCELLED },
-        include: { items: true },
-      });
 
       await tx.orderStatusHistory.create({
         data: {

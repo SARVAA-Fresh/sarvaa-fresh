@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '@/prisma/prisma.service';
-import { Prisma } from '@prisma/client';
+import { OrderStatus, Prisma } from '@prisma/client';
+import { InventoryService } from '@/inventory/inventory.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { NotificationsService } from '@/notifications/notifications.service';
 
@@ -8,6 +9,7 @@ import { NotificationsService } from '@/notifications/notifications.service';
 export class OrdersService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly inventoryService: InventoryService,
     private readonly notifications: NotificationsService,
   ) {}
 
@@ -203,6 +205,15 @@ export class OrdersService {
             },
           },
           payments: {
+            select: {
+              id: true,
+              orderId: true,
+              paymentMethod: true,
+              amount: true,
+              paymentStatus: true,
+              createdAt: true,
+              updatedAt: true,
+            },
             orderBy: { createdAt: 'desc' },
           },
           statusHistory: {
@@ -247,6 +258,15 @@ export class OrdersService {
             },
           },
           payments: {
+            select: {
+              id: true,
+              orderId: true,
+              paymentMethod: true,
+              amount: true,
+              paymentStatus: true,
+              createdAt: true,
+              updatedAt: true,
+            },
             orderBy: { createdAt: 'desc' },
           },
           statusHistory: {
@@ -291,6 +311,15 @@ export class OrdersService {
           },
         },
         payments: {
+          select: {
+            id: true,
+            orderId: true,
+            paymentMethod: true,
+            amount: true,
+            paymentStatus: true,
+            createdAt: true,
+            updatedAt: true,
+          },
           orderBy: { createdAt: 'desc' },
         },
         statusHistory: {
@@ -324,53 +353,25 @@ export class OrdersService {
       throw new ForbiddenException('You can only cancel your own orders');
     }
 
-    if (!['PENDING', 'CONFIRMED', 'PACKING'].includes(order.currentStatus)) {
+    const cancellableStatuses: OrderStatus[] = [
+      OrderStatus.PENDING,
+      OrderStatus.CONFIRMED,
+      OrderStatus.PACKING,
+    ];
+    if (!cancellableStatuses.includes(order.currentStatus)) {
       throw new BadRequestException(
         'Order can only be cancelled before it is out for delivery',
       );
     }
 
     return this.prisma.$transaction(async (tx) => {
-      // Release reserved inventory
-      for (const item of order.items) {
-        const inv = await tx.inventory.findFirst({
-          where: { variantId: item.variantId, deletedAt: null },
-        });
-        if (!inv) {
-          throw new BadRequestException(
-            `Inventory not found for variant ${item.variantId}`,
-          );
-        }
-        const newAvailable = inv.availableStock + item.quantity;
-        const newReserved = Math.max(0, inv.reservedStock - item.quantity);
-
-        await tx.inventory.update({
-          where: { variantId: item.variantId },
-          data: {
-            availableStock: newAvailable,
-            reservedStock: newReserved,
-            isInStock: newAvailable > 0,
-          },
-        });
-
-        await tx.inventoryTransaction.create({
-          data: {
-            variantId: item.variantId,
-            inventoryId: inv.id,
-            type: 'RELEASE',
-            quantityChange: item.quantity,
-            availableStockAfter: newAvailable,
-            reservedStockAfter: newReserved,
-            reason: 'Stock released from cancelled order',
-            referenceId: order.id,
-            referenceType: 'Order',
-          },
-        });
-      }
-
       const updated = await tx.order.update({
-        where: { id },
-        data: { currentStatus: 'CANCELLED' },
+        where: {
+          id,
+          deletedAt: null,
+          currentStatus: { in: cancellableStatuses },
+        },
+        data: { currentStatus: OrderStatus.CANCELLED },
         include: {
           address: true,
           items: {
@@ -390,13 +391,42 @@ export class OrdersService {
             },
           },
           payments: {
+            select: {
+              id: true,
+              orderId: true,
+              paymentMethod: true,
+              amount: true,
+              paymentStatus: true,
+              createdAt: true,
+              updatedAt: true,
+            },
             orderBy: { createdAt: 'desc' },
           },
           statusHistory: {
             orderBy: { createdAt: 'desc' },
           },
         },
+      }).catch((error: unknown) => {
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === 'P2025'
+        ) {
+          throw new BadRequestException(
+            'Order status changed and it can no longer be cancelled',
+          );
+        }
+        throw error;
       });
+
+      // Release reserved inventory
+      for (const item of order.items) {
+        await this.inventoryService.releaseStockInTransaction(
+          tx,
+          item.variantId,
+          item.quantity,
+          order.id,
+        );
+      }
 
       await tx.orderStatusHistory.create({
         data: {

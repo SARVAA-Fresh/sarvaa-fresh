@@ -392,54 +392,13 @@ export class InventoryService {
     quantity: number,
     referenceId?: string,
   ): Promise<Inventory> {
-    if (quantity <= 0) {
-      throw new BadRequestException('Quantity must be positive');
-    }
-
-    return this.prisma.$transaction(async (tx) => {
-      const inventory = await tx.inventory.findUnique({
-        where: { variantId },
-      });
-
-      if (!inventory) {
-        throw new NotFoundException('Inventory not found for this variant');
-      }
-
-      if (inventory.reservedStock < quantity) {
-        throw new BadRequestException('Cannot release more than reserved stock');
-      }
-
-      const newAvailable = inventory.availableStock + quantity;
-      const newReserved = inventory.reservedStock - quantity;
-
-      const updated = await tx.inventory.update({
-        where: { variantId },
-        data: {
-          availableStock: newAvailable,
-          reservedStock: newReserved,
-          isInStock: newAvailable > 0,
-        },
-      });
-
-      await tx.inventoryTransaction.create({
-        data: {
-          variantId,
-          inventoryId: inventory.id,
-          type: 'RELEASE',
-          quantityChange: quantity,
-          availableStockAfter: newAvailable,
-          reservedStockAfter: newReserved,
-          reason: 'Stock released from reservation',
-          referenceId,
-          referenceType: 'Order',
-        },
-      });
-
-      return updated;
-    });
+    return this.prisma.$transaction((tx) =>
+      this.releaseStockInTransaction(tx, variantId, quantity, referenceId),
+    );
   }
 
-  async confirmStockDeduction(
+  async releaseStockInTransaction(
+    tx: Prisma.TransactionClient,
     variantId: string,
     quantity: number,
     referenceId?: string,
@@ -448,43 +407,124 @@ export class InventoryService {
       throw new BadRequestException('Quantity must be positive');
     }
 
-    return this.prisma.$transaction(async (tx) => {
-      const inventory = await tx.inventory.findUnique({
-        where: { variantId },
+    const inventory = await tx.inventory.findFirst({
+      where: { variantId, deletedAt: null },
+    });
+
+    if (!inventory) {
+      throw new NotFoundException('Inventory not found for this variant');
+    }
+
+    let updated: Inventory;
+    try {
+      updated = await tx.inventory.update({
+        where: {
+          variantId,
+          reservedStock: { gte: quantity },
+          deletedAt: null,
+        },
+        data: {
+          availableStock: { increment: quantity },
+          reservedStock: { decrement: quantity },
+          isInStock: true,
+        },
       });
-
-      if (!inventory) {
-        throw new NotFoundException('Inventory not found for this variant');
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2025'
+      ) {
+        throw new BadRequestException('Cannot release more than reserved stock');
       }
+      throw error;
+    }
 
-      if (inventory.reservedStock < quantity) {
+    await tx.inventoryTransaction.create({
+      data: {
+        variantId,
+        inventoryId: inventory.id,
+        type: 'RELEASE',
+        quantityChange: quantity,
+        availableStockAfter: updated.availableStock,
+        reservedStockAfter: updated.reservedStock,
+        reason: 'Stock released from reservation',
+        referenceId,
+        referenceType: 'Order',
+      },
+    });
+
+    return updated;
+  }
+
+  async confirmStockDeduction(
+    variantId: string,
+    quantity: number,
+    referenceId?: string,
+  ): Promise<Inventory> {
+    return this.prisma.$transaction((tx) =>
+      this.confirmStockDeductionInTransaction(
+        tx,
+        variantId,
+        quantity,
+        referenceId,
+      ),
+    );
+  }
+
+  async confirmStockDeductionInTransaction(
+    tx: Prisma.TransactionClient,
+    variantId: string,
+    quantity: number,
+    referenceId?: string,
+  ): Promise<Inventory> {
+    if (quantity <= 0) {
+      throw new BadRequestException('Quantity must be positive');
+    }
+
+    const inventory = await tx.inventory.findFirst({
+      where: { variantId, deletedAt: null },
+    });
+
+    if (!inventory) {
+      throw new NotFoundException('Inventory not found for this variant');
+    }
+
+    let updated: Inventory;
+    try {
+      updated = await tx.inventory.update({
+        where: {
+          variantId,
+          reservedStock: { gte: quantity },
+          deletedAt: null,
+        },
+        data: {
+          reservedStock: { decrement: quantity },
+        },
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2025'
+      ) {
         throw new BadRequestException('Cannot confirm more than reserved stock');
       }
+      throw error;
+    }
 
-      const newReserved = inventory.reservedStock - quantity;
-
-      const updated = await tx.inventory.update({
-        where: { variantId },
-        data: {
-          reservedStock: newReserved,
-        },
-      });
-
-      await tx.inventoryTransaction.create({
-        data: {
-          variantId,
-          inventoryId: inventory.id,
-          type: 'SALE',
-          quantityChange: -quantity,
-          availableStockAfter: inventory.availableStock,
-          reservedStockAfter: newReserved,
-          reason: 'Stock confirmed for order',
-          referenceId,
-          referenceType: 'Order',
-        },
-      });
-
-      return updated;
+    await tx.inventoryTransaction.create({
+      data: {
+        variantId,
+        inventoryId: inventory.id,
+        type: 'SALE',
+        quantityChange: -quantity,
+        availableStockAfter: updated.availableStock,
+        reservedStockAfter: updated.reservedStock,
+        reason: 'Stock confirmed for order',
+        referenceId,
+        referenceType: 'Order',
+      },
     });
+
+    return updated;
   }
 }

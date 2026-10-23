@@ -6,9 +6,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
-  UploadedFile,
   UseGuards,
-  UseInterceptors,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -17,7 +15,6 @@ import {
   ApiBearerAuth,
   ApiParam,
   ApiSecurity,
-  ApiConsumes,
 } from '@nestjs/swagger';
 import { PaymentsService } from './payments.service';
 import { CreatePaymentDto } from './dto/create-payment.dto';
@@ -26,7 +23,6 @@ import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 import { AdminApiKeyGuard } from '@/common/guards/admin-api-key.guard';
 import { AdminJwtGuard } from '@/common/guards/admin-jwt.guard';
 import { CurrentUser, CurrentUserPayload } from '@/common/decorators/current-user.decorator';
-import { FileInterceptor } from '@nestjs/platform-express';
 
 @ApiTags('Payments')
 @Controller('payments')
@@ -39,7 +35,7 @@ export class PaymentsController {
   @ApiOperation({
     summary: 'Generate payment for order',
     description:
-      'Create a payment record for an order. For COD, returns basic details. For UPI, generates a UPI intent URL and QR code data string. Only the order owner can generate payment. Prevents duplicate active payments.',
+      'Create a Cash on Delivery payment record for the order. Public checkout supports COD only; UPI is unavailable.',
   })
   @ApiParam({
     name: 'orderId',
@@ -63,68 +59,11 @@ export class PaymentsController {
     return this.paymentsService.generatePayment(orderId, dto, user.userId) as any;
   }
 
-  @Patch('order/:orderId/submit')
-  @ApiOperation({
-    summary: 'Submit UPI payment',
-    description:
-      'Customer submits a UPI payment. Moves payment status from PENDING to PAYMENT_SUBMITTED. Only UPI payments and only the order owner can submit.',
-  })
-  @ApiParam({
-    name: 'orderId',
-    description: 'Order UUID',
-    example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Payment submitted successfully. Verification is in progress.',
-    type: PaymentEntity,
-  })
-  @ApiResponse({ status: 400, description: 'Not a UPI payment or status is not PENDING' })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 403, description: 'Not your order' })
-  @ApiResponse({ status: 404, description: 'Payment not found' })
-  async submitPayment(
-    @CurrentUser() user: CurrentUserPayload,
-    @Param('orderId', ParseUUIDPipe) orderId: string,
-  ): Promise<PaymentEntity> {
-    return this.paymentsService.submitPayment(orderId, user.userId) as any;
-  }
-
-  @Post('order/:orderId/proof')
-  @UseInterceptors(FileInterceptor('proof', { limits: { fileSize: 5 * 1024 * 1024 } }))
-  @ApiOperation({
-    summary: 'Upload UPI payment proof',
-    description:
-      'Customer uploads a payment proof image for a UPI payment. Sets payment status to PAYMENT_SUBMITTED and stores the proof URL.',
-  })
-  @ApiConsumes('multipart/form-data')
-  @ApiParam({
-    name: 'orderId',
-    description: 'Order UUID',
-    example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Payment proof uploaded successfully',
-    type: PaymentEntity,
-  })
-  @ApiResponse({ status: 400, description: 'Missing or invalid proof file' })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 403, description: 'Not your order' })
-  @ApiResponse({ status: 404, description: 'Payment or order not found' })
-  async uploadProof(
-    @CurrentUser() user: CurrentUserPayload,
-    @Param('orderId', ParseUUIDPipe) orderId: string,
-    @UploadedFile() file: Express.Multer.File,
-  ): Promise<PaymentEntity> {
-    return this.paymentsService.submitPaymentProof(orderId, user.userId, file) as any;
-  }
-
   @Get('order/:orderId')
   @ApiOperation({
     summary: 'Get payment details',
     description:
-      'Retrieve payment details for an order. For UPI payments, the UPI intent URL and QR data are regenerated on each request. Only the order owner can access.',
+      'Retrieve Cash on Delivery payment details for the order. Only the order owner can access it.',
   })
   @ApiParam({
     name: 'orderId',

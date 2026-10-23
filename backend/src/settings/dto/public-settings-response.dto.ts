@@ -37,18 +37,9 @@ export class PublicDeliveryDto {
 }
 
 export class PublicPaymentDto {
-  @ApiProperty({ required: false }) upiId?: string;
-  @ApiProperty({ required: false }) upiDisplayName?: string;
-  @ApiProperty({ required: false }) qrImageUrl?: string;
-  @ApiProperty({ required: false }) bankName?: string;
-  @ApiProperty({ required: false }) accountHolderName?: string;
-  @ApiProperty({ required: false }) branch?: string;
-  @ApiProperty({ required: false }) ifsc?: string;
   @ApiProperty({ required: false }) codEnabled?: boolean;
-  @ApiProperty({ required: false }) upiEnabled?: boolean;
-  @ApiProperty({ required: false }) futureGatewayEnabled?: boolean;
-  @ApiProperty({ required: false }) instructions?: string;
-  @ApiProperty({ type: [String] }) availableMethods: ('COD' | 'UPI')[] = [];
+  @ApiProperty({ type: [String], enum: ['COD'] })
+  availableMethods: 'COD'[] = [];
 }
 
 export class PublicStoreDto {

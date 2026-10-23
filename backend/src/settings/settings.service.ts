@@ -122,7 +122,7 @@ const SEED_SETTINGS: SeedRow[] = [
   { key: 'payment.branch', value: '', type: SettingType.STRING, category: SettingCategory.PAYMENT, isPublic: true },
   { key: 'payment.ifsc', value: '', type: SettingType.STRING, category: SettingCategory.PAYMENT, isPublic: true },
   { key: 'payment.cod_enabled', value: 'true', type: SettingType.BOOLEAN, category: SettingCategory.PAYMENT, isPublic: true },
-  { key: 'payment.upi_enabled', value: 'true', type: SettingType.BOOLEAN, category: SettingCategory.PAYMENT, isPublic: true },
+  { key: 'payment.upi_enabled', value: 'false', type: SettingType.BOOLEAN, category: SettingCategory.PAYMENT, isPublic: true },
   { key: 'payment.future_gateway_enabled', value: 'false', type: SettingType.BOOLEAN, category: SettingCategory.PAYMENT, isPublic: true },
   { key: 'payment.instructions', value: 'Pay with UPI and upload payment proof for verification.', type: SettingType.STRING, category: SettingCategory.PAYMENT, isPublic: true },
   { key: 'store.open_time', value: '06:00', type: SettingType.STRING, category: SettingCategory.STORE, isPublic: true },
@@ -216,6 +216,7 @@ export class SettingsService implements OnModuleInit {
       const field = PUBLIC_KEY_MAP[row.key];
       if (!field) continue;
       const [group, prop] = field.split('.');
+      if (group === 'payment' && prop !== 'codEnabled') continue;
       const parsed = this.parseValue(row);
       const target = (response as unknown as Record<string, Record<string, unknown>>)[group];
       if (target) {
@@ -225,9 +226,6 @@ export class SettingsService implements OnModuleInit {
 
     if (response.payment.codEnabled === true) {
       response.payment.availableMethods.push('COD');
-    }
-    if (response.payment.upiEnabled === true) {
-      response.payment.availableMethods.push('UPI');
     }
 
     return response;

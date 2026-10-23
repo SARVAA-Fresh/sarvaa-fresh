@@ -1,14 +1,14 @@
-import { IsEnum, IsNotEmpty } from 'class-validator';
+import { IsIn, IsNotEmpty } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { PaymentMethod } from '@prisma/client';
 
 export class CreatePaymentDto {
   @ApiProperty({
-    description: 'Payment method',
-    enum: PaymentMethod,
-    example: 'COD',
+    description: 'Public checkout supports Cash on Delivery only',
+    enum: [PaymentMethod.COD],
+    example: PaymentMethod.COD,
   })
-  @IsEnum(PaymentMethod)
+  @IsIn([PaymentMethod.COD])
   @IsNotEmpty()
   paymentMethod!: PaymentMethod;
 }

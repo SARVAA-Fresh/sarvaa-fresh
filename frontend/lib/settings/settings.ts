@@ -26,9 +26,9 @@ export const DEFAULT_PUBLIC_SETTINGS: PublicSettings = {
   },
   payment: {
     codEnabled: true,
-    upiEnabled: true,
+    upiEnabled: false,
     futureGatewayEnabled: false,
-    availableMethods: ["COD", "UPI"],
+    availableMethods: ["COD"],
   },
   store: {
     openTime: "06:00",
